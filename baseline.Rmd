@@ -1,0 +1,114 @@
+---
+title: "baseline"
+author: "Ethan de Villiers"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Init
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, include=FALSE}
+
+library(devtools) # Essential for Aurum integration
+library(tidyverse)  # streamlining R coding since 2016
+library(r2r) # Used in Hashmaps later
+
+install_github('drkgyoung/Exeter_Diabetes_aurum_package') # Package created by Exeter University to work with CPRD data
+library(aurum)
+```
+
+``` {r cprd, include=FALSE}
+cprd = CPRDData$new(cprdEnv = "test-remote", cprdConf = '~/RStudio/aurum.yaml')
+analysis = cprd$analysis("ethan_test")
+```
+
+``` {r test}
+# Pull data from t1t2_cohort which we will add baseline biomarkers to
+analysis = cprd$analysis("all")
+t1t2_cohort = t1t2_cohort %>% 
+  analysis$cached("t1t2_cohort") %>%
+  cbind.data.frame()
+```
+
+## Pulling Biomarkers
+biomarkers <- c("weight", "height", "bmi", "fastingglucose", "hdl", "triglyceride", "creatinine_blood", "ldl", "alt", "ast", "totalcholesterol", "dbp", "sbp", "acr", "albumin_blood", "bilirubin", "haematocrit", "haemoglobin", "pcr")
+ - Keep HbA1c separate as processed differently
+ 
+guide to hashmaps:
+m <- hashmap()
+insert(m, "user", "vgherard") # Modifies `m` in place
+query(m, "user")
+#> [1] "vgherard"
+
+```{r message=TRUE}
+analysis = cprd$analysis("all_patid_clean")
+bmi_data = bmi_data %>% 
+  analysis$cached("bmi_medcodes") %>%
+  cbind.data.frame()
+
+# Obtain all Patient IDs from T1T2 cohort that we need to calculate baseline BMI
+bmi_patid = t1t2_cohort$patid
+
+# Establish range used in for loop
+loop_range = 1:10 #length(bmi_patid) # create range used in for loop
+
+
+for (i in loop_range) {
+  date_diag = t1t2_cohort %>%
+    filter(bmi_patid[i] == patid) %>%
+    select(dm_diag_date_all) 
+  
+  date_diag = date_diag$dm_diag_date_all[1] # Extract pure value of date_diag
+  
+  print(date_diag) # Now have patient's diagnosis date
+  
+  # Now need to convert patient's BMI scores to a list
+  bmi_list = bmi_data %>%
+    filter(patid == bmi_patid[i]) %>%
+    select(date)
+  
+  bmi_list = as.Date(bmi_list$date, format="%Y-%m-%d")
+  print(paste('number of BMI entries = ', length(bmi_list)))
+  print(bmi_list)
+  
+  # Convert bmi_list to difference from diagnosis -> recording
+  dates_and_differences = hashmap()
+  
+  for (x in loop_range){
+    dates_and_differences[[bmi_list[x]]] = difftime(bmi_list[x], date_diag, units="weeks")
+  }
+  
+  dates = sort(as.numeric(values(dates_and_differences)))
+  
+  for (x in loop_range){
+    if (dates_and_differences[[bmi_list[x]]] == dates[1]) {
+      bmi_diag_date = bmi_list[x]
+      break
+    }
+  }
+  
+  bmi_value = bmi_data %>%
+    filter(bmi_patid[i] == patid) %>%
+    filter(date == bmi_date) %>%
+    select(testvalue)
+  
+  bmi_value = bmi_value$testvalue
+  
+  t1t2_cohort = t1t2_cohort %>%
+    mutate(bmi_date = ifelse(bmi_patid[i] == patid, bmi_diag_date, bmi_date)) %>%
+    mutate(bmi = bmi_value)
+}
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
