@@ -61,7 +61,7 @@ insert(m, "user", "vgherard") # Modifies `m` in place
 query(m, "user")
 #> [1] "vgherard"
 
-```{r Obtaining Baseline BMI, message=TRUE}
+```{r Obtaining Baseline BMI, results='hide', echo=FALSE}
 # Obtain all Patient IDs from T1T2 cohort that we need to calculate baseline BMI
 bmi_patid = patid_list
 
@@ -85,42 +85,46 @@ for (i in 1:length(bmi_patid)) {
     next 
   } # Skip over this iteration of loop if no BMI data
   
-  
+  # Logging
   print(paste('number of BMI entries = ', length(bmi_list)))
   print(bmi_list)
   
   dates_and_differences = hashmap()
-  upper_bound = 1:length(bmi_list)
-  for (x in upper_bound){
-   dates_and_differences[[bmi_list[x]]] = abs( difftime(bmi_list[x], date_diag, units="weeks") ) # Saves absolute value of differences between diag_date and BMI date
-  }
-
-  dates = sort(as.numeric(values(dates_and_differences))) # Order absolute values in ascending order
-  print(paste('closest to diag date = ', dates[1], ' weeks difference!'))
   
-  # Add a 2 week cut off to only calculate BMI 2-weeks before/after diagnosis 
-  if (dates[1] > 4){
-    t1t2_cohort = t1t2_cohort %>%
-      mutate(bmi_date = ifelse(bmi_patid[i] == patid, NA, bmi_date)) %>%
-      mutate(bmi = ifelse(bmi_patid[i] == patid, NA, bmi))
-    next #close off this iteration of loop
+  for (x in 1:length(bmi_list)){
+    individ_date_diff = difftime(bmi_list[x], date_diag, units="weeks")
+    if ( (individ_date_diff <= 0 & individ_date_diff >= -12) | (individ_date_diff >= 0 & individ_date_diff <= 6)){
+      print(paste('date is accepted! >-12 & <6, diff = ', individ_date_diff))
+      # Date is more recent than 12 weeks before diagnosis, and more recent than 6 weeks after diagnosis
+      dates_and_differences[[bmi_list[x]]] = abs( individ_date_diff ) # Saves absolute difference
+      next
+    }
+  }
+  
+  # Skip over this iteration of loop if no valid BMI dates
+  if (length(dates_and_differences) == 0){
+    print('No acceptable dates! Skipping iteration...')
+    next 
   } 
   
-  # If this secton has been reached, BMI date is <2 weeks
-  for (x in upper_bound){
-    if (dates_and_differences[[bmi_list[x]]] == dates[1]){
+  dates = sort(as.numeric(values(dates_and_differences))) # Order absolute values in ascending order
+  
+  print(paste('closest to diag date = ', dates[1], ' weeks difference!'))
+  
+  for (x in 1:length(dates_and_differences)){
+    key = keys(dates_and_differences)[x]
+    if (dates_and_differences[key] == 0){
       bmi_diag_date = as.character(bmi_list[x])
     }
-  } # This correctly saves the diagnosis date!
+  }
   
   bmi_value = bmi_data %>%
     filter(bmi_patid[i] == patid) %>%
     filter(date == bmi_diag_date)
-  bmi_value = bmi_value$testvalue # this correctly saves the BMI value
+  bmi_value = bmi_value$testvalue
   
   #Now have the correct diagnosis date: bmi_diag_date = date object
   #And have the correct diagnosis value: bmi_value = double object
-  
   t1t2_cohort = t1t2_cohort %>%
     mutate(bmi_date = ifelse(bmi_patid[i] == patid, bmi_diag_date, bmi_date)) %>%
     mutate(bmi = ifelse(bmi_patid[i] == patid, bmi_value, bmi))
@@ -128,6 +132,15 @@ for (i in 1:length(bmi_patid)) {
   # Remove patID from original list without interrupting this for loop iteration as it BMI has been completed for this patient!
   patid_list = patid_list[patid_list != bmi_patid[i]]
 }
+
+```
+
+
+
+```{r Checking BMI}
+
+t1t2_cohort %>%
+  filter(!is.na(bmi))
 
 ```
 
