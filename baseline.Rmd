@@ -25,12 +25,30 @@ cprd = CPRDData$new(cprdEnv = "test-remote", cprdConf = '~/RStudio/aurum.yaml')
 analysis = cprd$analysis("ethan_test")
 ```
 
-``` {r test}
+``` {r Pulling Datasets}
 # Pull data from t1t2_cohort which we will add baseline biomarkers to
 analysis = cprd$analysis("all")
 t1t2_cohort = t1t2_cohort %>% 
   analysis$cached("t1t2_cohort") %>%
   cbind.data.frame()
+
+# Pull BMI data
+analysis = cprd$analysis("all_patid_clean")
+bmi_data = bmi_data %>% 
+  analysis$cached("bmi_medcodes") %>%
+  cbind.data.frame()
+
+#Cleaning/preparing datasets
+bmi_data = bmi_data %>%
+  mutate(patid = as.character(patid)) # Change to strings to ensure large int integrity
+t1t2_cohort = t1t2_cohort %>%
+  mutate(patid = as.character(patid)) # Change to strings to ensure large int integrity
+
+t1t2_cohort$BMI_date = NA
+t1t2_cohort$bmi = NA
+
+# Obtain all Patient IDs from T1T2 cohort that we need to calculate baseline BMI
+patid_list = t1t2_cohort$patid
 ```
 
 ## Pulling Biomarkers
@@ -43,20 +61,11 @@ insert(m, "user", "vgherard") # Modifies `m` in place
 query(m, "user")
 #> [1] "vgherard"
 
-```{r message=TRUE}
-analysis = cprd$analysis("all_patid_clean")
-bmi_data = bmi_data %>% 
-  analysis$cached("bmi_medcodes") %>%
-  cbind.data.frame()
-
+```{r Obtaining Baseline BMI, message=TRUE}
 # Obtain all Patient IDs from T1T2 cohort that we need to calculate baseline BMI
-bmi_patid = t1t2_cohort$patid
+bmi_patid = patid_list
 
-# Establish range used in for loop
-loop_range = 1:10 #length(bmi_patid) # create range used in for loop
-
-
-for (i in loop_range) {
+for (i in 1:length(bmi_patid)) {
   date_diag = t1t2_cohort %>%
     filter(bmi_patid[i] == patid) %>%
     select(dm_diag_date_all) 
@@ -71,36 +80,55 @@ for (i in loop_range) {
     select(date)
   
   bmi_list = as.Date(bmi_list$date, format="%Y-%m-%d")
+  
+  if (length(bmi_list) == 0){
+    next 
+  } # Skip over this iteration of loop if no BMI data
+  
+  
   print(paste('number of BMI entries = ', length(bmi_list)))
   print(bmi_list)
   
-  # Convert bmi_list to difference from diagnosis -> recording
   dates_and_differences = hashmap()
-  
-  for (x in loop_range){
-    dates_and_differences[[bmi_list[x]]] = difftime(bmi_list[x], date_diag, units="weeks")
+  upper_bound = 1:length(bmi_list)
+  for (x in upper_bound){
+   dates_and_differences[[bmi_list[x]]] = abs( difftime(bmi_list[x], date_diag, units="weeks") ) # Saves absolute value of differences between diag_date and BMI date
   }
+
+  dates = sort(as.numeric(values(dates_and_differences))) # Order absolute values in ascending order
+  print(paste('closest to diag date = ', dates[1], ' weeks difference!'))
   
-  dates = sort(as.numeric(values(dates_and_differences)))
+  # Add a 2 week cut off to only calculate BMI 2-weeks before/after diagnosis 
+  if (dates[1] > 4){
+    t1t2_cohort = t1t2_cohort %>%
+      mutate(bmi_date = ifelse(bmi_patid[i] == patid, NA, bmi_date)) %>%
+      mutate(bmi = ifelse(bmi_patid[i] == patid, NA, bmi))
+    next #close off this iteration of loop
+  } 
   
-  for (x in loop_range){
-    if (dates_and_differences[[bmi_list[x]]] == dates[1]) {
-      bmi_diag_date = bmi_list[x]
-      break
+  # If this secton has been reached, BMI date is <2 weeks
+  for (x in upper_bound){
+    if (dates_and_differences[[bmi_list[x]]] == dates[1]){
+      bmi_diag_date = as.character(bmi_list[x])
     }
-  }
+  } # This correctly saves the diagnosis date!
   
   bmi_value = bmi_data %>%
     filter(bmi_patid[i] == patid) %>%
-    filter(date == bmi_date) %>%
-    select(testvalue)
+    filter(date == bmi_diag_date)
+  bmi_value = bmi_value$testvalue # this correctly saves the BMI value
   
-  bmi_value = bmi_value$testvalue
+  #Now have the correct diagnosis date: bmi_diag_date = date object
+  #And have the correct diagnosis value: bmi_value = double object
   
   t1t2_cohort = t1t2_cohort %>%
     mutate(bmi_date = ifelse(bmi_patid[i] == patid, bmi_diag_date, bmi_date)) %>%
-    mutate(bmi = bmi_value)
+    mutate(bmi = ifelse(bmi_patid[i] == patid, bmi_value, bmi))
+
+  # Remove patID from original list without interrupting this for loop iteration as it BMI has been completed for this patient!
+  patid_list = patid_list[patid_list != bmi_patid[i]]
 }
+
 ```
 
 ## Including Plots
