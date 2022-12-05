@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(devtools) # Essential for Aurum integration
 library(tidyverse)  # streamlining R coding since 2016
 library(r2r) # Used in Hashmaps later
+library(RMySQL)
 
 install_github('drkgyoung/Exeter_Diabetes_aurum_package') # Package created by Exeter University to work with CPRD data
 library(aurum)
@@ -54,12 +55,6 @@ patid_list = t1t2_cohort$patid
 ## Pulling Biomarkers
 biomarkers <- c("weight", "height", "bmi", "fastingglucose", "hdl", "triglyceride", "creatinine_blood", "ldl", "alt", "ast", "totalcholesterol", "dbp", "sbp", "acr", "albumin_blood", "bilirubin", "haematocrit", "haemoglobin", "pcr")
  - Keep HbA1c separate as processed differently
- 
-guide to hashmaps:
-m <- hashmap()
-insert(m, "user", "vgherard") # Modifies `m` in place
-query(m, "user")
-#> [1] "vgherard"
 
 ```{r Baseline BMI, results='hide', echo=FALSE}
 # Obtain all Patient IDs from T1T2 cohort that we need to calculate baseline BMI
@@ -148,11 +143,18 @@ for (i in 1:length(bmi_patid)) {
 
 
 ```{r Pushing to MySQL }
-analysis = cprd$analysis("ethan_atdiagnosis")
+#db.host = readline(prompt="Enter 'localhost' or Server IP:")
+db.username = readline(prompt="Enter MySQL Username: ")
+db.password = readline(prompt="Enter MySQL Password: ")
+db.database = readline(prompt="Enter Target Database: ")
 
-t1t2_cohort = t1t2_cohort %>%
-  analysis$cached("V1_bmi")
+# Connect to a MySQL database running locally
+con <- dbConnect(RMySQL::MySQL(), dbname = db.database, user = db.username, password = db.password) # host = db.host
 
+dbWriteTable(conn = con, name = 'ethan_test_dbconnection', value = t1t2_cohort)
+
+# Always cleanup by disconnecting the database
+dbDisconnect(con)
 
 
 ```
