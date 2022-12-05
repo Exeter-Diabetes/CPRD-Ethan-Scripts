@@ -2,9 +2,19 @@ library(tidyverse)  # streamlining R coding since 2016
 library(r2r) # Used in Hashmaps later
 library(RMySQL)
 
-db.username = readline(prompt="Enter MySQL Username: ")
-db.password = readline(prompt="Enter MySQL Password: ")
-db.database = readline(prompt="Enter Target Database: ")
+args = commandArgs(trailingOnly=TRUE)
+if (length(args) == 0){
+  print('No Args Passed!')
+} else if (length(args) == 1){
+  print(paste('1 arg passed: ', args[1]))
+} else {
+  print(paste('Multiple args passed!'))
+}
+
+df = read.table(args[1], header=TRUE)
+num_vars = which(sapply(df, class)=="numeric")
+df_out = df[ ,num_vars]
+write.table(df_out, file=args[2], row.names=FALSE)
 
 # Connect to a MySQL database running locally
 con = dbConnect(RMySQL::MySQL(), dbname = db.database, user = db.username, password = db.password) # host = db.host
