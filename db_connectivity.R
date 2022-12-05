@@ -3,21 +3,13 @@ library(r2r) # Used in Hashmaps later
 library(RMySQL)
 
 args = commandArgs(trailingOnly=TRUE)
-if (length(args) == 0){
-  print('No Args Passed!')
-} else if (length(args) == 1){
-  print(paste('1 arg passed: ', args[1]))
-} else {
-  print(paste('Multiple args passed!'))
+if (length(args) != 3){
+  stop('Script requires 3 arguments: MySQL Username, MySQL Password, Target MySQL DB Name.')
 }
 
-df = read.table(args[1], header=TRUE)
-num_vars = which(sapply(df, class)=="numeric")
-df_out = df[ ,num_vars]
-write.table(df_out, file=args[2], row.names=FALSE)
 
 # Connect to a MySQL database running locally
-con = dbConnect(RMySQL::MySQL(), dbname = db.database, user = db.username, password = db.password) # host = db.host
+con = dbConnect(RMySQL::MySQL(), user = args[1], password = args[2], dbname = args[3])
 
 #Lists
 Keys = c('This', 'is', 'a', 'test', 'dataframe')
