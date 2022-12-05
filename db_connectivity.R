@@ -1,9 +1,5 @@
 library(tidyverse)  # streamlining R coding since 2016
-
-install.packages('r2r')
 library(r2r) # Used in Hashmaps later
-
-install.packages('RMySQL')
 library(RMySQL)
 
 db.username = readline(prompt="Enter MySQL Username: ")
