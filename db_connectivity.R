@@ -1,9 +1,7 @@
-install.packages('devtools')
 install.packages('tidyverse')
 install.packages('r2r')
 install.packages('RMySQL')
 
-library(devtools) # Essential for Aurum integration
 library(tidyverse)  # streamlining R coding since 2016
 library(r2r) # Used in Hashmaps later
 library(RMySQL)
