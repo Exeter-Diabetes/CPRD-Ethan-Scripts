@@ -16,7 +16,6 @@ Keys = c('This', 'is', 'a', 'test', 'dataframe')
 Values = c(1:5)
 
 df = data.frame(Keys, Values)
-View(df)
 
 dbWriteTable(conn = con, name = 'ethan_test_dbconnection', value = df)
 # Always cleanup by disconnecting the database
