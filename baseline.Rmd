@@ -23,15 +23,57 @@ library(aurum)
 
 ``` {r cprd, include=FALSE}
 cprd = CPRDData$new(cprdEnv = "test-remote", cprdConf = '~/RStudio/aurum.yaml')
-analysis = cprd$analysis("ethan_atdiagnosis")
 ```
+
+``` {r Calculating Baseline BMI}
+analysis = cprd$analysis("all")
+
+bmi_data = bmi_data %>% 
+  analysis$cached("patid_clean_bmi_medcodes")
+t1t2_cohort = t1t2_cohort %>%
+  analysis$cached("t1t2_cohort")
+
+analysis = cprd$analysis("ethan")
+raw_bmi = t1t2_cohort %>%
+  select(patid, dm_diag_date_all) %>%
+  left_join(bmi_data, by="patid") %>%
+  mutate(date_diff = datediff(date, dm_diag_date_all)/7) %>%
+  filter(date_diff >= -12 & date_diff <=6) %>%
+  group_by(patid) %>%
+  mutate(min_date_diff=min(abs(date_diff), na.rm=TRUE)) %>%
+  dbplyr::window_order(date_diff) %>%
+  filter(row_number()==1) %>%
+  ungroup() %>%
+  filter(abs(date_diff)==min_date_diff) %>%
+  analysis$cached("atdiagnosis_raw_bmi")
+
+t1t2_cohort = t1t2_cohort %>%
+  left_join(
+    raw_bmi %>% 
+    select(patid, bmi=testvalue, bmi_date=date),
+    by="patid"
+  ) %>%
+  analysis$cached("atdiagnosis_bmi_clean")
+
+```
+
 
 ``` {r Pulling Datasets}
 # Pull data from t1t2_cohort which we will add baseline biomarkers to
 analysis = cprd$analysis("all")
 t1t2_cohort = t1t2_cohort %>% 
   analysis$cached("t1t2_cohort") %>%
-  cbind.data.frame()
+  mutate(BMI = NA) %>%
+  analysis$cached('ethan_test')
+
+t1t2_cohort_test = t1t2_cohort_test %>%
+  analysis$cached("t1t2_cohort")
+
+clean_hba1c_clean_units = clean_hba1c_clean_units %>%
+  analysis$cached("patid_clean_hba1c_medcodes")
+
+
+View(t1t2_cohort)
 
 # Pull BMI data
 analysis = cprd$analysis("all_patid_clean")
@@ -140,9 +182,26 @@ for (i in 1:length(bmi_patid)) {
 
 ```
 
+``` {r New BMI Pulling}
 
+
+
+```
 
 ```{r Pushing to MySQL }
+#Attempting Katie's way
+t1t2_cohort = t1t2_cohort %>% 
+  analysis$cached("t1t2_cohort") %>%
+  mutate(BMI = NA) %>%
+  analysis$cached('ethan_test')
+
+data.frame(c("hello", 'test', 'testing'), c(1:3)) %>%
+  analysis$cached('ethan_test_DF_cache')
+
+typeof(t1t2_cohort)
+print(t1t2_cohort)
+t1t2_cohort[1]
+
 #db.host = readline(prompt="Enter 'localhost' or Server IP:")
 db.username = readline(prompt="Enter MySQL Username: ")
 db.password = readline(prompt="Enter MySQL Password: ")
