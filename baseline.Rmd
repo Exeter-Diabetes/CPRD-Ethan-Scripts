@@ -21,9 +21,13 @@ install_github('drkgyoung/Exeter_Diabetes_aurum_package') # Package created by E
 library(aurum)
 ```
 
-``` {r cprd, include=FALSE}
+``` {r cprd, include=FALSE, echo=FALSE}
 cprd = CPRDData$new(cprdEnv = "test-remote", cprdConf = '~/RStudio/aurum.yaml')
 ```
+
+## Pulling Biomarkers
+biomarkers <- c("weight", "height", "bmi", "fastingglucose", "hdl", "triglyceride", "creatinine_blood", "ldl", "alt", "ast", "totalcholesterol", "dbp", "sbp", "acr", "albumin_blood", "bilirubin", "haematocrit", "haemoglobin", "pcr")
+ - Keep HbA1c separate as processed differently
 
 ``` {r Calculating Baseline BMI}
 analysis = cprd$analysis("all")
@@ -53,13 +57,20 @@ t1t2_cohort = t1t2_cohort %>%
     select(patid, bmi=testvalue, bmi_date=date),
     by="patid"
   ) %>%
-  analysis$cached("atdiagnosis_bmi_clean")
+  analysis$cached("atdiagnosis_bmi_clean") # change to atdiagnosis_v1_bmi
 
 ```
 
+``` {r Calculating Time to Insulin}
+# Katie has already found earliest insulin date and diagnosis date: 'dm_diag_insdate' and 'dm_diag_date_all'
+t1t2_cohort = t1t2_cohort %>%
+  mutate(time_to_insulin_weeks = datediff(dm_diag_insdate, dm_diag_date_all)/7) %>%
+  analysis$cached("atdiagnosis_v2_instime")
 
-``` {r Pulling Datasets}
-# Pull data from t1t2_cohort which we will add baseline biomarkers to
+```
+
+``` {r Legacy Code}
+#Pulling data
 analysis = cprd$analysis("all")
 t1t2_cohort = t1t2_cohort %>% 
   analysis$cached("t1t2_cohort") %>%
@@ -92,13 +103,7 @@ t1t2_cohort$bmi = NA
 
 # Obtain all Patient IDs from T1T2 cohort that we need to calculate baseline BMI
 patid_list = t1t2_cohort$patid
-```
 
-## Pulling Biomarkers
-biomarkers <- c("weight", "height", "bmi", "fastingglucose", "hdl", "triglyceride", "creatinine_blood", "ldl", "alt", "ast", "totalcholesterol", "dbp", "sbp", "acr", "albumin_blood", "bilirubin", "haematocrit", "haemoglobin", "pcr")
- - Keep HbA1c separate as processed differently
-
-```{r Baseline BMI, results='hide', echo=FALSE}
 # Obtain all Patient IDs from T1T2 cohort that we need to calculate baseline BMI
 bmi_patid = patid_list
 
@@ -180,27 +185,7 @@ for (i in 1:length(bmi_patid)) {
   patid_list = patid_list[patid_list != bmi_patid[i]]
 }
 
-```
 
-``` {r New BMI Pulling}
-
-
-
-```
-
-```{r Pushing to MySQL }
-#Attempting Katie's way
-t1t2_cohort = t1t2_cohort %>% 
-  analysis$cached("t1t2_cohort") %>%
-  mutate(BMI = NA) %>%
-  analysis$cached('ethan_test')
-
-data.frame(c("hello", 'test', 'testing'), c(1:3)) %>%
-  analysis$cached('ethan_test_DF_cache')
-
-typeof(t1t2_cohort)
-print(t1t2_cohort)
-t1t2_cohort[1]
 
 #db.host = readline(prompt="Enter 'localhost' or Server IP:")
 db.username = readline(prompt="Enter MySQL Username: ")
@@ -214,6 +199,4 @@ dbWriteTable(conn = con, name = 'ethan_test_dbconnection', value = t1t2_cohort)
 
 # Always cleanup by disconnecting the database
 dbDisconnect(con)
-
-
 ```
