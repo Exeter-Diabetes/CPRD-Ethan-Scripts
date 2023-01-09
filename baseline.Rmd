@@ -28,8 +28,14 @@ cprd = CPRDData$new(cprdEnv = "test-remote", cprdConf = '~/RStudio/aurum.yaml')
 ## Pulling Biomarkers
 biomarkers <- c("weight", "height", "bmi", "fastingglucose", "hdl", "triglyceride", "creatinine_blood", "ldl", "alt", "ast", "totalcholesterol", "dbp", "sbp", "acr", "albumin_blood", "bilirubin", "haematocrit", "haemoglobin", "pcr")
  - Keep HbA1c separate as processed differently
+ 
+Compelted Biomarkers:
+ - Weight
+ - Height
+ - BMI
+ - 
 
-``` {r Calculating Baseline BMI}
+``` {r Pulling Baseline BMI}
 analysis = cprd$analysis("all")
 
 bmi_data = bmi_data %>% 
@@ -68,6 +74,136 @@ t1t2_cohort = t1t2_cohort %>%
   analysis$cached("atdiagnosis_v2_instime")
 
 ```
+
+``` {r Pulling Baseline Weight}
+analysis = cprd$analysis("all")
+
+# Obtaining new Weight Table to pull into my data
+weight_data = weight_data %>% 
+  analysis$cached("patid_clean_weight_medcodes")
+
+# Obtaining my table to add to
+analysis = cprd$analysis("ethan")
+my_cohort = my_cohort %>%
+  analysis$cached("atdiagnosis_v2_instime")
+
+raw_weight = my_cohort %>%
+  select(patid, dm_diag_date_all) %>%
+  left_join(weight_data, by="patid") %>%
+  mutate(date_diff = datediff(date, dm_diag_date_all)/7) %>%
+  filter(date_diff >= -12 & date_diff <=6) %>%
+  group_by(patid) %>%
+  mutate(min_date_diff=min(abs(date_diff), na.rm=TRUE)) %>%
+  dbplyr::window_order(date_diff) %>%
+  filter(row_number()==1) %>%
+  ungroup() %>%
+  filter(abs(date_diff)==min_date_diff) %>%
+  analysis$cached("atdiagnosis_raw_weight")
+
+my_cohort = my_cohort %>%
+  left_join(
+    raw_weight %>% 
+    select(patid, weight=testvalue, weight_date=date),
+    by="patid"
+  ) %>%
+  analysis$cached("atdiagnosis_v3_weight")
+
+```
+
+``` {r Pulling Baseline Height}
+
+analysis = cprd$analysis("all")
+
+# Obtaining new Weight Table to pull into my data
+height_data = height_data %>% 
+  analysis$cached("patid_clean_height_medcodes")
+
+# No need to assign my_cohort as it was assigned to _v3_weight in last section
+analysis = cprd$analysis("ethan")
+
+raw_height = my_cohort %>% # takes about 10 mins to run on Slade
+  select(patid, dm_diag_date_all) %>%
+  left_join(height_data, by="patid") %>%
+  mutate(date_diff = datediff(date, dm_diag_date_all)/7) %>%
+  filter(date_diff >= -12 & date_diff <=6) %>%
+  group_by(patid) %>%
+  mutate(min_date_diff=min(abs(date_diff), na.rm=TRUE)) %>%
+  dbplyr::window_order(date_diff) %>%
+  filter(row_number()==1) %>%
+  ungroup() %>%
+  filter(abs(date_diff)==min_date_diff) %>%
+  analysis$cached("atdiagnosis_raw_height")
+
+my_cohort = my_cohort %>%
+  left_join(
+    raw_height %>% 
+    select(patid, height=testvalue, height_date=date),
+    by="patid"
+  ) %>%
+  analysis$cached("atdiagnosis_v4_height")
+
+```
+
+``` {r Pulling Baseline Hba1c}
+
+analysis = cprd$analysis("all")
+
+# Obtaining new Weight Table to pull into my data
+hba1c_data = hba1c_data %>% 
+  analysis$cached("patid_clean_hba1c_medcodes")
+
+# So... Always re-assign to the latest version to avoid versioning issues :(
+analysis = cprd$analysis("ethan")
+
+my_cohort = my_cohort %>%
+  analysis$cached("atdiagnosis_v4_height")
+
+raw_hba1c = my_cohort %>% # takes about 10 mins to run on Slade
+  select(patid, dm_diag_date_all) %>%
+  left_join(hba1c_data, by="patid") %>%
+  mutate(date_diff = datediff(date, dm_diag_date_all)/7) %>%
+  filter(date_diff >= -12 & date_diff <=6) %>%
+  group_by(patid) %>%
+  mutate(min_date_diff=min(abs(date_diff), na.rm=TRUE)) %>%
+  dbplyr::window_order(date_diff) %>%
+  filter(row_number()==1) %>%
+  ungroup() %>%
+  filter(abs(date_diff)==min_date_diff) %>%
+  analysis$cached("atdiagnosis_raw_hba1c")
+
+my_cohort = my_cohort %>%
+  left_join(
+    raw_hba1c %>% 
+    select(patid, hba1c=testvalue, hba1c_date=date),
+    by="patid"
+  ) %>%
+  analysis$cached("atdiagnosis_v5_hba1c")
+
+```
+
+## Calculations Section
+
+``` {r Calculating Model 1: Clinical Features}
+### Model 1 logOddsRatio = 37.94 + (-5.09 * log(dm_diag_age_all)) + (-6.34 * log(bmi))
+### Model Probability = exp(logOR) / (1 + exp(logOR))
+
+# model_data = model_data %>%
+#   mutate(Model5Prob = ifelse(!is.na(Model5LogOR), exp(Model5LogOR) / (1 + exp(Model5LogOR)), NA))
+
+#Update this as I continue pulling baseline characteristics
+my_cohort = my_cohort %>%
+  analysis$cached("atdiagnosis_v5_hba1c")
+
+my_cohort = my_cohort %>%
+  mutate(dm_diag_age_all = ifelse(dm_diag_age_all < 0, 0, dm_diag_age_all)) %>%
+  mutate(model_clinfeats = ifelse(!is.na(dm_diag_age_all) & !is.na(bmi) & dm_diag_age_all != 0,
+                               exp(37.94 + (-5.09 * log(dm_diag_age_all)) + (-6.34 * log(bmi))) / (1 + exp(37.94 + (-5.09 * log(dm_diag_age_all)) + (-6.34 * log(bmi)))),
+                               NULL)) %>%
+  analysis$cached("atdiagnosis_vX_models")
+
+
+```
+
 
 ``` {r Legacy Code}
 #Pulling data
