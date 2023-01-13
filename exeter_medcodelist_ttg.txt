@@ -1,5 +1,0 @@
-MedCodeId	Term	read_code
-2478448011	Tissue transglutaminase IgA level	43ad.
-1485461017	Serum tissue transglutaminase level	44Ce.
-2478449015	Tissue transglutaminase IgG level	43ae.
-1824361000006112	Test request : Serum tissue transglutaminase level	44Ce.

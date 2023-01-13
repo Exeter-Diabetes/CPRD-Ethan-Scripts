@@ -1,0 +1,45 @@
+---
+title: "TSH and TTG"
+author: "Ethan de Villiers"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rio)
+```
+
+``` {r TSH Medcodes}
+#Included Read Codes:
+readcodes_tsh = c("442A.", "442e.", "442K.", "442L.", "442M.", "442N.", "442O.", "442P.", "442Q.", "442R.", "442S.", "442T.", "442W.", "442X.")
+readcodes_tshantibody = "43Gu."
+
+filepath = '~/Downloads/CPRDAurumMedical.txt'
+my_data <- import(filepath)
+
+tsh_df = my_data %>%
+  mutate(read_code = substr(CleansedReadCode, 1, 5) ) %>%
+  filter(read_code %in% readcodes_tsh) %>%
+  select(MedCodeId, Term, read_code)
+```
+
+
+``` {r TTG Medcodes}
+#Excluded codes
+# 44MQ TSH bind site inhib globul level
+readcodes_ttg = c("44Ce.", "43ad.", "43ae.")
+readcodes_ttgantibody = "43aC."
+
+ttg_df = my_data %>%
+  mutate(read_code = substr(CleansedReadCode, 1, 5) ) %>%
+  filter(read_code %in% readcodes_ttg) %>%
+  select(MedCodeId, Term, read_code)
+
+```
+
+
+``` {r Exporting data frames}
+write.table(tsh_df, "exeter_medcodelist_tsh.txt", quote=FALSE, sep = "\t", row.names=FALSE, col.names=TRUE)
+write.table(ttg_df, "exeter_medcodelist_ttg.txt", quote=FALSE, sep = "\t", row.names=FALSE, col.names=TRUE)
+```

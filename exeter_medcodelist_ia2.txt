@@ -1,2 +1,0 @@
-MedCodeId	Term	read_code
-2501971000000115	Serum islet antigen 2 antibody concentration	43ax.

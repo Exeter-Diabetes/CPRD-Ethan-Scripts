@@ -309,24 +309,10 @@ for (i in 1:length(bmi_patid)) {
   bmi_value = bmi_value$testvalue
   print(paste('Pulled bmi_value from patient according to hashmap date stored. BMI pulled = ', bmi_value))
   
-  #Now have the correct diagnosis date: bmi_diag_date = BMI diagnosis date
-  #And have the correct diagnosis value: bmi_value = BMI test result on said date
   t1t2_cohort = t1t2_cohort %>%
     mutate(bmi_date = ifelse(bmi_patid[i] == patid, bmi_diag_date, bmi_date)) %>%
     mutate(bmi = ifelse(bmi_patid[i] == patid, bmi_value, bmi))
   
-  
-
-  # Remove patID from original list without interrupting this for loop iteration as it BMI has been completed for this patient!
-  patid_list = patid_list[patid_list != bmi_patid[i]]
-}
-
-
-
-#db.host = readline(prompt="Enter 'localhost' or Server IP:")
-db.username = readline(prompt="Enter MySQL Username: ")
-db.password = readline(prompt="Enter MySQL Password: ")
-db.database = readline(prompt="Enter Target Database: ")
 
 # Connect to a MySQL database running locally
 con <- dbConnect(RMySQL::MySQL(), dbname = db.database, user = db.username, password = db.password) # host = db.host
