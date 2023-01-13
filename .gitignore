@@ -1,2 +1,5 @@
 .Rproj.user
 CPRD-Ethan-Scripts.Rproj
+.DS-Store
+.RData
+.Rhistory
