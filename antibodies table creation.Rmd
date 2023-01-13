@@ -1,0 +1,59 @@
+
+``` {r Init echo=FALSE}
+library(devtools) # Essential for Aurum integration
+library(tidyverse)  # streamlining R coding since 2016
+library(r2r) # Used in Hashmaps later
+library(RMySQL)
+
+install_github('drkgyoung/Exeter_Diabetes_aurum_package') # Package created by Exeter University to work with CPRD data
+library(aurum)
+
+cprd = CPRDData$new(cprdEnv = "test-remote", cprdConf = '~/RStudio/aurum.yaml')
+codesets = cprd$codesets()
+codes = codesets$getAllCodeSetVersion(v = "31/10/2021")
+```
+
+
+``` {r Creating all_patid_raw_antibodies tables}
+analysis = cprd$analysis("all_patid")
+
+ethan_raw_test <- cprd$tables$observation %>%
+    inner_join(codes$gad_abs, by="medcodeid") %>%
+    analysis$cached("raw_gad", indexes=c("patid", "obsdate", "testvalue", "numunitid"))
+
+ethan_raw_IA2 <- cprd$tables$observation %>%
+    inner_join(codes$ia2, by="medcodeid") %>%
+    analysis$cached("raw_ia2", indexes=c("patid", "obsdate", "testvalue", "numunitid"))
+
+ethan_raw_ICA <- cprd$tables$observation %>%
+    inner_join(codes$ica, by="medcodeid") %>%
+    analysis$cached("raw_ica", indexes=c("patid", "obsdate", "testvalue", "numunitid"))
+
+```
+
+``` {r Checking and cleaning data}
+analysis = cprd$analysis("all_patid_raw")
+
+# Produce Hist of GAD
+gad = gad_df %>%
+  analysis$cached("gad") %>%
+  cbind.data.frame()
+
+hist(gad_df$testvalue)
+
+# Produce Hist of IA2
+ia2 = ia2 %>%
+  analysis$cached("ia2") %>%
+  cbind.data.frame()
+
+hist(ia2$testvalue)
+
+# Produce Hist of ICA
+ica = ica %>%
+  analysis$cached("ica") %>%
+  cbind.data.frame()
+
+hist(ica$testvalue)
+
+```
+
