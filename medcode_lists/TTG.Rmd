@@ -70,7 +70,6 @@ regex_results = regex_results %>%
 
 
 ``` {r Medcodes}
-# Now can work with Code and Code_Type in tsh_results$
 # Type = V2_read, V3_read, SNOMED
 
 filepath = '~/Downloads/CPRDAurumMedical.txt'
@@ -80,10 +79,10 @@ View(Medcode_lookup)
 
 medcodelist_df = Medcode_lookup %>%
   mutate(read_code = substr(CleansedReadCode, 1, 5) ) %>%
-  filter(read_code %in% tsh_results$Codes | SnomedCTConceptId %in% tsh_results$Codes) %>%
+  filter(read_code %in% regex_results$Codes | SnomedCTConceptId %in% regex_results$Codes) %>%
   select(MedCodeId, Term)
 
-medcodelist_df = unique(tsh_df, by = "MedCodeId")
+medcodelist_df = unique(medcodelist_df, by = "MedCodeId")
 
 View(medcodelist_df)
 ```
