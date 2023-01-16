@@ -1,12 +1,11 @@
 ---
-title: "TSH Medcode list creation"
+title: "TTG Medcode list creation"
 author: "Ethan de Villiers"
-date: "`r Sys.Date()`"
+date: '`r Sys.Date()`'
 output: html_document
 ---
 
 ```{r setup, echo=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 library(rio)
 library(stringr)
 library(dplyr)
@@ -23,49 +22,54 @@ View(pbcl_dictionary)
 pbcl_dictionary = pbcl_dictionary %>%
   mutate(SNOMED_CONCEPTID = as.character(SNOMED_CONCEPTID))
 
+# Modify these search terms to change RegEx!
+search_terms = list("ttg", "tissue", "ttg-iga", "transglutaminase")
+
 # RegEx - Run and check results before continuing
-( tsh_results_raw  = pbcl_dictionary %>%
-  filter( 
-    str_detect(V2_TERM, regex("TSH", ignore_case = TRUE)) == TRUE |
-    str_detect(V3_TERM, regex("TSH", ignore_case = TRUE)) == TRUE |
-    str_detect(SNOMED_TERM, regex("TSH", ignore_case = TRUE)) == TRUE ) )
+codelist_raw  = pbcl_dictionary %>%
+  filter(
+    str_detect(V2_TERM, paste(search_terms, collapse = "|")) == TRUE |
+    str_detect(V3_TERM, paste(search_terms, collapse = "|")) == TRUE |
+    str_detect(SNOMED_TERM, paste(search_terms, collapse = "|")) == TRUE )
 
 #Building a cleaner dataframe
-tsh_results = rbind.data.frame(
-    tsh_results_raw %>% 
+regex_results = rbind.data.frame(
+    codelist_raw %>% 
       select(V2_READ_CODE, V2_TERM) %>%
       mutate(Type = "V2_read") %>%
       rename("Codes" = "V2_READ_CODE") %>%
       rename("Terms" = "V2_TERM")
     ,
-    tsh_results_raw %>% 
+    codelist_raw %>% 
       select(V3_READ_CODE, V3_TERM) %>%
       mutate(Type = "V3_read") %>%
       rename("Codes" = "V3_READ_CODE") %>%
       rename("Terms" = "V3_TERM")
     ,
-    tsh_results_raw %>% 
+    codelist_raw %>% 
       select(SNOMED_CONCEPTID, SNOMED_TERM) %>%
       mutate(Type = "SNOMED") %>%
       rename("Codes" = "SNOMED_CONCEPTID") %>%
       rename("Terms"= "SNOMED_TERM")
   )
 
+# Remove duplicates
+regex_results = unique(regex_results, by = "Codes")
  
 # Clean codelist
-View(tsh_results)
-
-# Removing duplicates
-tsh_results = unique(tsh_results, by = "Codes")
+View(regex_results)
 
 # Removing unwanted codes
-tsh_results = tsh_results %>%
-  filter(Codes != "995841000000105" & Codes != "43Gu" & Codes != "54495009") %>% # Remove SNOMED TSH ~Antibody~ code
-  filter(Codes != "408273009" & Codes != "1005531000000107") # Remove SNOMED TSH ~binding site inhibitors~
+regex_results = regex_results %>%
+  filter(Codes != "4KB.." & Codes != "43cA." & Codes != "XaIqP" 
+         & Codes != "1010431000000101" & Codes != "168474008" & Codes != "395141005" 
+         & Codes != "1009431000000108") %>% # Remove Wrong Tissue MedCodes
+  filter(Codes != "XaINX" & Codes != "43aC." & Codes != "998781000000101"
+         & Codes != "135853007") # Remove Anti-transglutaminase
 ```
 
 
-``` {r TSH Medcodes}
+``` {r Medcodes}
 # Now can work with Code and Code_Type in tsh_results$
 # Type = V2_read, V3_read, SNOMED
 
@@ -74,20 +78,18 @@ Medcode_lookup <- import(filepath)
 
 View(Medcode_lookup)
 
-tsh_df = Medcode_lookup %>%
+medcodelist_df = Medcode_lookup %>%
   mutate(read_code = substr(CleansedReadCode, 1, 5) ) %>%
   filter(read_code %in% tsh_results$Codes | SnomedCTConceptId %in% tsh_results$Codes) %>%
   select(MedCodeId, Term)
 
-tsh_df = unique(tsh_df, by = "MedCodeId")
+medcodelist_df = unique(tsh_df, by = "MedCodeId")
 
-View(tsh_df)
-
-
+View(medcodelist_df)
 ```
 
 
 
 ``` {r Exporting data frames}
-write.table(tsh_df, "exeter_medcodelist_tsh.txt", quote=FALSE, sep = "\t", row.names=FALSE, col.names=TRUE)
+write.table(medcodelist_df, "exeter_medcodelist_ttg.txt", quote=FALSE, sep = "\t", row.names=FALSE, col.names=TRUE)
 ```
