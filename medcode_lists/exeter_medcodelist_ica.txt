@@ -1,2 +1,2 @@
-MedCodeId	Term	read_code
-134341000000110	Islet cell antibody level	43a3.
+MedCodeId	Term
+134341000000110	Islet cell antibody level
