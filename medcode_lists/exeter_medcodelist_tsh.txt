@@ -1,16 +1,18 @@
-MedCodeId	Term	read_code
-1864181000006112	Test request : Serum TSH level	442W.
-457336018	Serum TSH (thyroid stimulating hormone) level	442W.
-458045010	60 minute serum thyroid stimulating hormone level	442Q.
-458046011	90 minute serum thyroid stimulating hormone level	442R.
-458050016	60 minute plasma thyroid stimulating hormone level	442L.
-458105015	120 minute serum thyroid stimulating hormone level	442S.
-458167013	30 minute serum thyroid stimulating hormone level	442P.
-1780303012	Blood spot TSH (thyroid stimulating hormone) level	442e.
-458054013	150 minute plasma thyroid stimulating hormone level	442O.
-458053019	120 minute plasma thyroid stimulating hormone level	442N.
-458118011	30 minute plasma thyroid stimulating hormone level	442K.
-458049016	150 minute serum thyroid stimulating hormone level	442T.
-458106019	90 minute plasma thyroid stimulating hormone level	442M.
-88771000006117	TSH (thyroid stimulating hormone) level	442A.
-457339013	Plasma TSH (thyroid stimulating hormone) level	442X.
+MedCodeId	Term
+1864181000006112	Test request : Serum TSH level
+457336018	Serum TSH (thyroid stimulating hormone) level
+458045010	60 minute serum thyroid stimulating hormone level
+458046011	90 minute serum thyroid stimulating hormone level
+458050016	60 minute plasma thyroid stimulating hormone level
+458105015	120 minute serum thyroid stimulating hormone level
+458167013	30 minute serum thyroid stimulating hormone level
+1780303012	Blood spot TSH (thyroid stimulating hormone) level
+133851000000119	Thyroid stimulating hormone receptor antibody level
+458054013	150 minute plasma thyroid stimulating hormone level
+458053019	120 minute plasma thyroid stimulating hormone level
+458118011	30 minute plasma thyroid stimulating hormone level
+935291000006115	Thyroid stimulating hormone binding site inhibitor globulin level
+458049016	150 minute serum thyroid stimulating hormone level
+458106019	90 minute plasma thyroid stimulating hormone level
+88771000006117	TSH (thyroid stimulating hormone) level
+457339013	Plasma TSH (thyroid stimulating hormone) level
