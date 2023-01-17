@@ -11,6 +11,8 @@ library(rio)
 library(stringr)
 library(dplyr)
 library(tidyverse)
+
+search_terms = list("thyroid stimulating hormone", "tsh", "thyroid", "thyroid stimulating")
 ```
 
 ``` {r Preparing Codelist from PBCL}
@@ -26,9 +28,9 @@ pbcl_dictionary = pbcl_dictionary %>%
 # RegEx - Run and check results before continuing
 ( tsh_results_raw  = pbcl_dictionary %>%
   filter( 
-    str_detect(V2_TERM, regex("TSH", ignore_case = TRUE)) == TRUE |
-    str_detect(V3_TERM, regex("TSH", ignore_case = TRUE)) == TRUE |
-    str_detect(SNOMED_TERM, regex("TSH", ignore_case = TRUE)) == TRUE ) )
+    str_detect(V2_TERM, regex(paste(search_terms, collapse = "|"), ignore_case = TRUE)) == TRUE |
+    str_detect(V3_TERM, regex(paste(search_terms, collapse = "|"), ignore_case = TRUE)) == TRUE |
+    str_detect(SNOMED_TERM, regex(paste(search_terms, collapse = "|"), ignore_case = TRUE)) == TRUE ) )
 
 #Building a cleaner dataframe
 tsh_results = rbind.data.frame(
