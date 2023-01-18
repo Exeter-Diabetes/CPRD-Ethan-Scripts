@@ -1,0 +1,100 @@
+---
+title: "GAD Medcode list creation"
+author: "Ethan de Villiers"
+date: '`r Sys.Date()`'
+output: html_document
+---
+
+```{r setup, echo=FALSE}
+library(rio)
+library(stringr)
+library(dplyr)
+library(tidyverse)
+```
+
+``` {r Environment Setup, echo=FALSE}
+# Importing PBCL dictionary
+dictionary_path = '~/Downloads/CPRD_Read_SNOMED_PBCL.txt'
+pbcl_dictionary <- import(dictionary_path)
+
+
+# Alter column datatypes
+pbcl_dictionary = pbcl_dictionary %>%
+  mutate(SNOMED_CONCEPTID = as.character(SNOMED_CONCEPTID))
+
+filepath = '~/Downloads/CPRDAurumMedical.txt'
+Medcode_lookup <- import(filepath)
+Medcode_lookup = Medcode_lookup %>%
+  mutate(SnomedCTConceptId = as.character(SnomedCTConceptId))
+  
+# View(pbcl_dictionary)
+# View(Medcode_lookup)
+```
+
+``` {r Preparing Codelist from PBCL}
+
+# Modify these search terms to change RegEx!
+search_terms = list("GAD", "glutamic acid decarboxylase", "glutamic acid", "glutamic" , "acid decarboxylase")
+
+# RegEx - Run and check results before continuing
+codelist_raw  = pbcl_dictionary %>%
+  filter(
+    str_detect(V2_TERM, paste(search_terms, collapse = "|")) == TRUE |
+    str_detect(V3_TERM, paste(search_terms, collapse = "|")) == TRUE |
+    str_detect(SNOMED_TERM, paste(search_terms, collapse = "|")) == TRUE )
+
+#Building a cleaner dataframe
+regex_results = rbind.data.frame(
+    codelist_raw %>% 
+      select(V2_READ_CODE, V2_TERM) %>%
+      mutate(Type = "V2_read") %>%
+      rename("Codes" = "V2_READ_CODE") %>%
+      rename("Terms" = "V2_TERM")
+    ,
+    codelist_raw %>% 
+      select(V3_READ_CODE, V3_TERM) %>%
+      mutate(Type = "V3_read") %>%
+      rename("Codes" = "V3_READ_CODE") %>%
+      rename("Terms" = "V3_TERM")
+    ,
+    codelist_raw %>% 
+      select(SNOMED_CONCEPTID, SNOMED_TERM) %>%
+      mutate(Type = "SNOMED") %>%
+      rename("Codes" = "SNOMED_CONCEPTID") %>%
+      rename("Terms"= "SNOMED_TERM")
+  )
+
+# Remove duplicates
+regex_results = unique(regex_results, by = "Codes")
+ 
+```
+
+``` {r Viewing and Cleaning raw-codelist, echo=FALSE}
+View(regex_results)
+
+
+exclusion_codelist = list("46gk.", "Xab3o", "997861000000100", "904791000000105", "44SU.", "44kP.", "XaIas", "XaJ2h", "1017221000000103", "391403004", "1002911000000103", "407685005")
+
+regex_results = regex_results %>%
+  filter(!(Codes %in% exclusion_codelist))
+```
+
+
+
+``` {r Medcodes}
+
+medcodelist_df = Medcode_lookup %>%
+  mutate(read_code = substr(CleansedReadCode, 1, 5) ) %>%
+  filter(read_code %in% regex_results$Codes | SnomedCTConceptId %in% regex_results$Codes) %>%
+  select(MedCodeId, Term)
+
+medcodelist_df = unique(medcodelist_df, by = "MedCodeId")
+```
+
+
+
+``` {r Exporting data frames}
+View(medcodelist_df)
+
+write.table(medcodelist_df, "exeter_medcodelist_gad.txt", quote=FALSE, sep = "\t", row.names=FALSE, col.names=TRUE)
+```
