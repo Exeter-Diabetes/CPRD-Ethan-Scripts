@@ -6,13 +6,12 @@ output: html_document
 ---
 
 ```{r setup, echo=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 library(rio)
 library(stringr)
 library(dplyr)
 library(tidyverse)
 
-search_terms = list("thyroid stimulating hormone", "tsh", "thyroid", "thyroid stimulating")
+search_terms = list("thyroid stimulating hormone", "tsh", "thyroid stimulating")
 ```
 
 ``` {r Preparing Codelist from PBCL}
@@ -62,8 +61,11 @@ tsh_results = unique(tsh_results, by = "Codes")
 
 # Removing unwanted codes
 tsh_results = tsh_results %>%
-  filter(Codes != "995841000000105" & Codes != "43Gu" & Codes != "54495009") %>% # Remove SNOMED TSH ~Antibody~ code
-  filter(Codes != "408273009" & Codes != "1005531000000107") # Remove SNOMED TSH ~binding site inhibitors~
+  filter(Codes != "995841000000105" & Codes != "43Gu" & Codes != "54495009" & Codes != "43mQ." &
+           Codes != "43mQ0" & Codes != "XaEO4" & Codes != "XaIoT" & Codes != "XaJOp" &
+           Codes != "XabCz" & Codes != "1028611000000102" & Codes != "395037008" &
+           Codes != "1004411000000104" & Codes != "911341000000100") %>% # Remove SNOMED TSH ~Antibody~ code
+  filter(Codes != "408273009" & Codes != "1005531000000107" & Codes != "44MQ.") # Remove SNOMED TSH ~binding site inhibitors~
 ```
 
 
