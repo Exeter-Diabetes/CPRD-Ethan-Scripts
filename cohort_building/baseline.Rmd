@@ -186,7 +186,63 @@ my_cohort = my_cohort %>%
 ```
 
 
-``` {r Pulling Baseline Antibodies (GAD IA2 ICA)}
+``` {r Pulling Baseline Antibodies: GAD, echo=FALSE}
+
+# Obtaining new Weight Table to pull into my data
+analysis = cprd$analysis("all_patid_clean")
+raw_attribute_data = raw_attribute_data %>% 
+  analysis$cached("gad")
+
+analysis = cprd$analysis("ethan")
+my_cohort = my_cohort %>%
+  analysis$cached("atdiagnosis_v5_hba1c")
+
+raw_atdiagnosis_attribute = my_cohort %>% # takes about 10 mins to run on Slade
+  select(patid) %>%
+  left_join(raw_attribute_data, by="patid") %>%
+  group_by(patid) %>%
+  dbplyr::window_order(obsdate) %>%
+  filter(row_number()==1) %>%
+  ungroup() %>%
+  analysis$cached("atdiagnosis_raw_gad")
+
+my_cohort = my_cohort %>%
+  left_join(
+    raw_atdiagnosis_attribute %>% 
+    select(patid, gad=result),
+    by="patid"
+  ) %>%
+  analysis$cached("atdiagnosis_v6_gad")
+
+```
+
+``` {r Pulling Baseline Antibodies: IA2, echo=FALSE}
+
+# Obtaining new Weight Table to pull into my data
+analysis = cprd$analysis("all_patid_clean")
+raw_attribute_data = raw_attribute_data %>% 
+  analysis$cached("ia2")
+
+analysis = cprd$analysis("ethan")
+my_cohort = my_cohort %>%
+  analysis$cached("atdiagnosis_v6_gad")
+
+raw_atdiagnosis_attribute = my_cohort %>% # takes about 10 mins to run on Slade
+  select(patid) %>%
+  left_join(raw_attribute_data, by="patid") %>%
+  group_by(patid) %>%
+  dbplyr::window_order(obsdate) %>%
+  filter(row_number()==1) %>%
+  ungroup() %>%
+  analysis$cached("atdiagnosis_raw_ia2")
+
+my_cohort = my_cohort %>%
+  left_join(
+    raw_atdiagnosis_attribute %>% 
+    select(patid, ia2=result),
+    by="patid"
+  ) %>%
+  analysis$cached("atdiagnosis_v7_ia2")
 
 ```
 

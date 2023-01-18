@@ -17,29 +17,27 @@ codes = codesets$getAllCodeSetVersion(v = "31/10/2021")
 analysis = cprd$analysis("all_patid")
 
 cprd$tables$observation %>%
-    inner_join(codes$gad_abs, by="medcodeid") %>%
-    analysis$cached("raw_gad", indexes=c("patid", "obsdate", "testvalue", "numunitid"))
+    inner_join(codes$gad, by="medcodeid") %>%
+    analysis$cached("raw_gad")
 
 cprd$tables$observation %>%
     inner_join(codes$ia2, by="medcodeid") %>%
-    analysis$cached("raw_ia2", indexes=c("patid", "obsdate", "testvalue", "numunitid"))
+    analysis$cached("raw_ia2")
 
 cprd$tables$observation %>%
     inner_join(codes$ica, by="medcodeid") %>%
-    analysis$cached("raw_ica", indexes=c("patid", "obsdate", "testvalue", "numunitid"))
+    analysis$cached("raw_ica")
 
 ```
 
 ``` {r Checking and cleaning GAD}
-analysis = cprd$analysis("all_patid_raw")
-
 # raw GAD table
+analysis = cprd$analysis("all_patid_raw")
 ethan_raw_antibody = ethan_raw_antibody %>%
   analysis$cached("gad")
 
-#> multi line comments!!
-
-analysis = cprd$analysis("ethan_clean")
+# 
+analysis = cprd$analysis("all_patid_clean")
 ethan_raw_antibody = ethan_raw_antibody %>%
   select(patid, obsdate, testvalue, numunitid, numrangelow, numrangehigh) %>%
   mutate( result = ifelse( 
@@ -61,15 +59,12 @@ ethan_raw_antibody = ethan_raw_antibody %>%
 
 
 ``` {r Cleaning and Preparing IA2}
-analysis = cprd$analysis("all_patid_raw")
-
 # raw IA2 table
+analysis = cprd$analysis("all_patid_raw")
 ethan_raw_antibody = ethan_raw_antibody %>%
   analysis$cached("ia2")
 
-#> multi line comments!!
-
-analysis = cprd$analysis("ethan_clean")
+analysis = cprd$analysis("all_patid_clean")
 ethan_raw_antibody = ethan_raw_antibody %>%
   select(patid, obsdate, testvalue, numunitid, numrangelow, numrangehigh) %>%
   mutate( result = ifelse( 
@@ -93,9 +88,6 @@ ethan_raw_antibody = ethan_raw_antibody %>%
 ``` {r Cleaning and Preparing ICA}
 
 # [TODO] Find correct value range for ICA and create table
-
-analysis = cprd$analysis("all_patid_raw")
-
 # raw ICA table
 ethan_raw_antibody = ethan_raw_antibody %>%
   analysis$cached("ica")
