@@ -16,7 +16,7 @@ library(tidyverse)
 # Importing PBCL dictionary
 dictionary_path = '~/Downloads/CPRD_Read_SNOMED_PBCL.txt'
 pbcl_dictionary <- import(dictionary_path)
-View(pbcl_dictionary)
+# View(pbcl_dictionary)
 
 # Alter column datatypes
 pbcl_dictionary = pbcl_dictionary %>%
@@ -58,7 +58,7 @@ regex_results = rbind.data.frame(
 regex_results = unique(regex_results, by = "Codes")
  
 # Clean codelist
-View(regex_results)
+# View(regex_results)
 
 # Removing unwanted codes - NO UNWANTEDS
 ```
@@ -71,16 +71,17 @@ View(regex_results)
 filepath = '~/Downloads/CPRDAurumMedical.txt'
 Medcode_lookup <- import(filepath)
 
-View(Medcode_lookup)
+# View(Medcode_lookup)
 
 medcodelist_df = Medcode_lookup %>%
   mutate(read_code = substr(CleansedReadCode, 1, 5) ) %>%
+  mutate(SnomedCTConceptId = as.character(SnomedCTConceptId)) %>%
   filter(read_code %in% regex_results$Codes | SnomedCTConceptId %in% regex_results$Codes) %>%
   select(MedCodeId, Term)
 
 medcodelist_df = unique(medcodelist_df, by = "MedCodeId")
 
-View(medcodelist_df)
+# View(medcodelist_df)
 ```
 
 

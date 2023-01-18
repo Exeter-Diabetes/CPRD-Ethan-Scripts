@@ -80,7 +80,8 @@ View(Medcode_lookup)
 
 tsh_df = Medcode_lookup %>%
   mutate(read_code = substr(CleansedReadCode, 1, 5) ) %>%
-  filter(read_code %in% tsh_results$Codes | SnomedCTConceptId %in% tsh_results$Codes) %>%
+  mutate(SnomedCTConceptId = as.character(SnomedCTConceptId)) %>%
+  filter((read_code %in% tsh_results$Codes) | (SnomedCTConceptId %in% tsh_results$Codes)) %>%
   select(MedCodeId, Term)
 
 tsh_df = unique(tsh_df, by = "MedCodeId")
