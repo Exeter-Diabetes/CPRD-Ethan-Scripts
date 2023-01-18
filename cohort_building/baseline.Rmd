@@ -6,34 +6,38 @@ output: html_document
 ---
 
 ## Init
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
-```{r packages, include=FALSE}
+```{r packages, echo=FALSE}
 
 library(devtools) # Essential for Aurum integration
 library(tidyverse)  # streamlining R coding since 2016
-library(r2r) # Used in Hashmaps later
-library(RMySQL)
 
 install_github('drkgyoung/Exeter_Diabetes_aurum_package') # Package created by Exeter University to work with CPRD data
 library(aurum)
-```
 
-``` {r cprd, include=FALSE, echo=FALSE}
 cprd = CPRDData$new(cprdEnv = "test-remote", cprdConf = '~/RStudio/aurum.yaml')
 ```
+
 
 ## Pulling Biomarkers
 biomarkers <- c("weight", "height", "bmi", "fastingglucose", "hdl", "triglyceride", "creatinine_blood", "ldl", "alt", "ast", "totalcholesterol", "dbp", "sbp", "acr", "albumin_blood", "bilirubin", "haematocrit", "haemoglobin", "pcr")
  - Keep HbA1c separate as processed differently
  
-Compelted Biomarkers:
+Completed Biomarkers:
  - Weight
  - Height
  - BMI
  - 
+ 
+To DO baseline:
+ - IA2
+ - ICA
+ - GAD
+ - Run Models!
+ - HDL
+ - LDL
+ - Triglyceride
+ - Run lipids model!
 
 ``` {r Pulling Baseline BMI}
 analysis = cprd$analysis("all")
@@ -180,6 +184,12 @@ my_cohort = my_cohort %>%
   analysis$cached("atdiagnosis_v5_hba1c")
 
 ```
+
+
+``` {r Pulling Baseline Antibodies (GAD IA2 ICA)}
+
+```
+
 
 ## Calculations Section
 
