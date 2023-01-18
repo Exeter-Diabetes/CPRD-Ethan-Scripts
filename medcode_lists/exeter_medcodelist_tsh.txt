@@ -19,7 +19,6 @@ MedCodeId	Term
 458105015	120 minute serum thyroid stimulating hormone level
 458167013	30 minute serum thyroid stimulating hormone level
 1780303012	Blood spot TSH (thyroid stimulating hormone) level
-133851000000119	Thyroid stimulating hormone receptor antibody level
 6038141000006117	150 minute plasma TSH measurement
 6030101000006117	Measurement of serum thyroid stimulating hormone
 6030141000006115	Measurement of plasma thyroid stimulating hormone

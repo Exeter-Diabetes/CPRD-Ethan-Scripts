@@ -12,15 +12,27 @@ library(dplyr)
 library(tidyverse)
 ```
 
-``` {r Preparing Codelist from PBCL}
+
+``` {r Environment Setup, echo=FALSE}
 # Importing PBCL dictionary
 dictionary_path = '~/Downloads/CPRD_Read_SNOMED_PBCL.txt'
 pbcl_dictionary <- import(dictionary_path)
-# View(pbcl_dictionary)
 
 # Alter column datatypes
 pbcl_dictionary = pbcl_dictionary %>%
   mutate(SNOMED_CONCEPTID = as.character(SNOMED_CONCEPTID))
+
+filepath = '~/Downloads/CPRDAurumMedical.txt'
+Medcode_lookup <- import(filepath)
+Medcode_lookup = Medcode_lookup %>%
+  mutate(SnomedCTConceptId = as.character(SnomedCTConceptId))
+  
+# View(pbcl_dictionary)
+# View(Medcode_lookup)
+```
+
+
+``` {r Preparing Codelist from PBCL}
 
 # Modify these search terms to change RegEx!
 search_terms = list("ttg", "tissue", "ttg-iga", "transglutaminase")
@@ -56,27 +68,25 @@ regex_results = rbind.data.frame(
 # Remove duplicates
 regex_results = unique(regex_results, by = "Codes")
  
-# Clean codelist
-# View(regex_results)
+```
+
+
+``` {r Viewing and Cleaning raw-codelist, echo=FALSE}
+View(regex_results)
+
+# exclusion_codelist = list("46gk.", "Xab3o", "997861000000100", "904791000000105", "44SU.", "44kP.", "XaIas", "XaJ2h", "1017221000000103", "391403004", "1002911000000103", "407685005")
+
+# regex_results = regex_results %>%
+#   filter(!(Codes %in% exclusion_codelist))
 
 # Removing unwanted codes
 regex_results = regex_results %>%
   filter(Codes != "4KB.." & Codes != "43cA." & Codes != "XaIqP" 
          & Codes != "1010431000000101" & Codes != "168474008" & Codes != "395141005" 
-         & Codes != "1009431000000108") %>% # Remove Wrong Tissue MedCodes
-  filter(Codes != "XaINX" & Codes != "43aC." & Codes != "998781000000101"
-         & Codes != "135853007") # Remove Anti-transglutaminase
+         & Codes != "1009431000000108") # Remove Wrong Tissue MedCodes
 ```
 
-
 ``` {r Medcodes}
-# Type = V2_read, V3_read, SNOMED
-
-filepath = '~/Downloads/CPRDAurumMedical.txt'
-Medcode_lookup <- import(filepath)
-
-# View(Medcode_lookup)
-
 medcodelist_df = Medcode_lookup %>%
   mutate(read_code = substr(CleansedReadCode, 1, 5) ) %>%
   mutate(SnomedCTConceptId = as.character(SnomedCTConceptId)) %>%
@@ -84,12 +94,10 @@ medcodelist_df = Medcode_lookup %>%
   select(MedCodeId, Term)
 
 medcodelist_df = unique(medcodelist_df, by = "MedCodeId")
-
-# View(medcodelist_df)
 ```
 
 
-
 ``` {r Exporting data frames}
+View(medcodelist_df)
 write.table(medcodelist_df, "exeter_medcodelist_ttg.txt", quote=FALSE, sep = "\t", row.names=FALSE, col.names=TRUE)
 ```

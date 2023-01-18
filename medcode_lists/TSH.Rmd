@@ -12,27 +12,44 @@ library(dplyr)
 library(tidyverse)
 
 search_terms = list("thyroid stimulating hormone", "tsh", "thyroid stimulating")
+exclusion_terms = list("antibody", "antib")
 ```
 
-``` {r Preparing Codelist from PBCL}
+
+``` {r Environment Setup, echo=FALSE}
 # Importing PBCL dictionary
 dictionary_path = '~/Downloads/CPRD_Read_SNOMED_PBCL.txt'
 pbcl_dictionary <- import(dictionary_path)
-View(pbcl_dictionary)
+
 
 # Alter column datatypes
 pbcl_dictionary = pbcl_dictionary %>%
   mutate(SNOMED_CONCEPTID = as.character(SNOMED_CONCEPTID))
 
+filepath = '~/Downloads/CPRDAurumMedical.txt'
+Medcode_lookup <- import(filepath)
+Medcode_lookup = Medcode_lookup %>%
+  mutate(SnomedCTConceptId = as.character(SnomedCTConceptId))
+  
+# View(pbcl_dictionary)
+# View(Medcode_lookup)
+```
+
+
+``` {r Preparing Codelist from PBCL}
 # RegEx - Run and check results before continuing
-( tsh_results_raw  = pbcl_dictionary %>%
+tsh_results_raw  = pbcl_dictionary %>%
   filter( 
     str_detect(V2_TERM, regex(paste(search_terms, collapse = "|"), ignore_case = TRUE)) == TRUE |
     str_detect(V3_TERM, regex(paste(search_terms, collapse = "|"), ignore_case = TRUE)) == TRUE |
-    str_detect(SNOMED_TERM, regex(paste(search_terms, collapse = "|"), ignore_case = TRUE)) == TRUE ) )
+    str_detect(SNOMED_TERM, regex(paste(search_terms, collapse = "|"), ignore_case = TRUE)) == TRUE ) %>%
+  filter( 
+    !str_detect(V2_TERM, regex(paste(exclusion_terms, collapse = "|"), ignore_case = TRUE)) == TRUE |
+    !str_detect(V3_TERM, regex(paste(exclusion_terms, collapse = "|"), ignore_case = TRUE)) == TRUE |
+    !str_detect(SNOMED_TERM, regex(paste(exclusion_terms, collapse = "|"), ignore_case = TRUE)) == TRUE )
 
 #Building a cleaner dataframe
-tsh_results = rbind.data.frame(
+regex_results = rbind.data.frame(
     tsh_results_raw %>% 
       select(V2_READ_CODE, V2_TERM) %>%
       mutate(Type = "V2_read") %>%
@@ -52,15 +69,21 @@ tsh_results = rbind.data.frame(
       rename("Terms"= "SNOMED_TERM")
   )
 
- 
-# Clean codelist
-View(tsh_results)
-
 # Removing duplicates
-tsh_results = unique(tsh_results, by = "Codes")
+regex_results = unique(regex_results, by = "Codes")
+
+```
+
+``` {r Viewing and Cleaning raw-codelist, echo=FALSE}
+View(regex_results)
+
+
+#> exclusion_codelist = list("46gk.", "Xab3o", "997861000000100", "904791000000105", "44SU.", "44kP.", "XaIas", "XaJ2h", "1017221000000103", "391403004", "1002911000000103", "407685005")
+
+#> regex_results = regex_results %>% filter(!(Codes %in% exclusion_codelist))
 
 # Removing unwanted codes
-tsh_results = tsh_results %>%
+regex_results = regex_results %>%
   filter(Codes != "995841000000105" & Codes != "43Gu" & Codes != "54495009" & Codes != "43mQ." &
            Codes != "43mQ0" & Codes != "XaEO4" & Codes != "XaIoT" & Codes != "XaJOp" &
            Codes != "XabCz" & Codes != "1028611000000102" & Codes != "395037008" &
@@ -68,31 +91,17 @@ tsh_results = tsh_results %>%
   filter(Codes != "408273009" & Codes != "1005531000000107" & Codes != "44MQ.") # Remove SNOMED TSH ~binding site inhibitors~
 ```
 
-
 ``` {r TSH Medcodes}
-# Now can work with Code and Code_Type in tsh_results$
-# Type = V2_read, V3_read, SNOMED
-
-filepath = '~/Downloads/CPRDAurumMedical.txt'
-Medcode_lookup <- import(filepath)
-
-View(Medcode_lookup)
-
-tsh_df = Medcode_lookup %>%
+medcodelist_df = Medcode_lookup %>%
   mutate(read_code = substr(CleansedReadCode, 1, 5) ) %>%
   mutate(SnomedCTConceptId = as.character(SnomedCTConceptId)) %>%
-  filter((read_code %in% tsh_results$Codes) | (SnomedCTConceptId %in% tsh_results$Codes)) %>%
+  filter((read_code %in% regex_results$Codes) | (SnomedCTConceptId %in% regex_results$Codes)) %>%
   select(MedCodeId, Term)
 
-tsh_df = unique(tsh_df, by = "MedCodeId")
-
-View(tsh_df)
-
-
+medcodelist_df = unique(medcodelist_df, by = "MedCodeId")
 ```
 
-
-
 ``` {r Exporting data frames}
-write.table(tsh_df, "exeter_medcodelist_tsh.txt", quote=FALSE, sep = "\t", row.names=FALSE, col.names=TRUE)
+View(medcodelist_df)
+write.table(medcodelist_df, "exeter_medcodelist_tsh.txt", quote=FALSE, sep = "\t", row.names=FALSE, col.names=TRUE)
 ```
