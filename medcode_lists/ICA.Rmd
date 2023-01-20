@@ -12,28 +12,40 @@ library(dplyr)
 library(tidyverse)
 ```
 
-``` {r Preparing Codelist from PBCL}
+``` {r Environment Setup, echo=FALSE}
 # Importing PBCL dictionary
 dictionary_path = '~/Downloads/CPRD_Read_SNOMED_PBCL.txt'
 pbcl_dictionary <- import(dictionary_path)
-# View(pbcl_dictionary)
 
 # Alter column datatypes
 pbcl_dictionary = pbcl_dictionary %>%
   mutate(SNOMED_CONCEPTID = as.character(SNOMED_CONCEPTID))
 
+filepath = '~/Downloads/CPRDAurumMedical.txt'
+Medcode_lookup <- import(filepath)
+Medcode_lookup = Medcode_lookup %>%
+  mutate(SnomedCTConceptId = as.character(SnomedCTConceptId))
+  
+# View(pbcl_dictionary)
+# View(Medcode_lookup)
+```
+
+``` {r Preparing Codelist from PBCL}
 # Islet - cell Antigen (ICA)
 # Modify these search terms to change RegEx!
 search_terms = list("islet cell antigen", "islet antigen", "islet cell", "islet cell antibody")
+exclusion_terms = list("2")
 
 # RegEx - Run and check results before continuing
 codelist_raw  = pbcl_dictionary %>%
   filter(
     str_detect(V2_TERM, regex(paste(search_terms, collapse = "|"), ignore_case = T)) == TRUE |
     str_detect(V3_TERM, regex(paste(search_terms, collapse = "|"), ignore_case = T)) == TRUE |
-    str_detect(SNOMED_TERM, regex(paste(search_terms, collapse = "|"), ignore_case = T)) == TRUE )
-
-
+    str_detect(SNOMED_TERM, regex(paste(search_terms, collapse = "|"), ignore_case = T)) == TRUE ) %>%
+  filter( 
+    !str_detect(V2_TERM, regex(paste(exclusion_terms, collapse = "|"), ignore_case = TRUE)) == TRUE |
+    !str_detect(V3_TERM, regex(paste(exclusion_terms, collapse = "|"), ignore_case = TRUE)) == TRUE |
+    !str_detect(SNOMED_TERM, regex(paste(exclusion_terms, collapse = "|"), ignore_case = TRUE)) == TRUE )
 
 #Building a cleaner dataframe
 regex_results = rbind.data.frame(
@@ -58,29 +70,20 @@ regex_results = rbind.data.frame(
 
 # Remove duplicates
 regex_results = unique(regex_results, by = "Codes")
- 
-# Clean codelist
-# View(regex_results)
+```
 
-# Removing unwanted codes
+``` {r Viewing and Cleaning raw-codelist, echo=FALSE}
+View(regex_results)
+
+exclusion_codelist = list("43ax.")
+
 discard_codelist = list("43ax.")
 regex_results = regex_results %>%
   filter(!(Codes %in% discard_codelist))
 
-# View(regex_results)
-
 ```
 
-
 ``` {r Medcodes, echo=FALSE}
-# Now can work with Code and Code_Type in medcodelist_df$Codes
-# Type = V2_read, V3_read, SNOMED
-
-filepath = '~/Downloads/CPRDAurumMedical.txt'
-Medcode_lookup <- import(filepath)
-
-# View(Medcode_lookup)
-
 medcodelist_df = Medcode_lookup %>%
   mutate(read_code = substr(CleansedReadCode, 1, 5) ) %>%
   mutate(SnomedCTConceptId = as.character(SnomedCTConceptId)) %>%
@@ -88,12 +91,9 @@ medcodelist_df = Medcode_lookup %>%
   select(MedCodeId, Term)
 
 medcodelist_df = unique(medcodelist_df, by = "MedCodeId")
-
-# View(medcodelist_df)
 ```
 
-
-
 ``` {r Exporting data frames}
+View(medcodelist_df)
 write.table(medcodelist_df, "exeter_medcodelist_ica.txt", quote=FALSE, sep = "\t", row.names=FALSE, col.names=TRUE)
 ```
