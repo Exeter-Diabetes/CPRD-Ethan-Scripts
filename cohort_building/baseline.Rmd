@@ -209,7 +209,7 @@ raw_atdiagnosis_attribute = my_cohort %>% # takes about 10 mins to run on Slade
 my_cohort = my_cohort %>%
   left_join(
     raw_atdiagnosis_attribute %>% 
-    select(patid, gad=result),
+    select(patid, gad=result, gad_date=obsdate),
     by="patid"
   ) %>%
   analysis$cached("atdiagnosis_v6_gad")
@@ -239,7 +239,7 @@ raw_atdiagnosis_attribute = my_cohort %>% # takes about 10 mins to run on Slade
 my_cohort = my_cohort %>%
   left_join(
     raw_atdiagnosis_attribute %>% 
-    select(patid, ia2=result),
+    select(patid, ia2=result, ia2_date = obsdate),
     by="patid"
   ) %>%
   analysis$cached("atdiagnosis_v7_ia2")
