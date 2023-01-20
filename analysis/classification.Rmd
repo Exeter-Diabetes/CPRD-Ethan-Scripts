@@ -1,0 +1,291 @@
+---
+title: "Classification Investigation"
+author: "Ethan de Villiers"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Init
+
+```{r packages, echo=FALSE}
+library(devtools) # Essential for Aurum integration
+library(tidyverse)  # streamlining R coding since 2016
+library(psych) # Essential for descriptive stats
+library(ggplot2) # Used in graphing
+library(ggridges) # very beautiful must have ridges
+library(ggpubr) # gghistogram()!
+
+install_github('drkgyoung/Exeter_Diabetes_aurum_package') # Package created by Exeter University to work with CPRD data
+library(aurum)
+
+cprd = CPRDData$new(cprdEnv = "test-remote", cprdConf = '~/RStudio/aurum.yaml')
+```
+
+## Cohort analysis
+``` {r Data prep, echo=FALSE}
+# Current datatable version = `ethan_atdiagnosis_v7_ia2`
+analysis = cprd$analysis("ethan_atdiagnosis")
+
+atdiagnosis_cohort = atdiagnosis_cohort %>%
+  analysis$cached("v7_ia2") %>%
+  cbind.data.frame()
+
+View(atdiagnosis_cohort)
+
+# Creating my Antibodies cohort
+antibodies_cohort = atdiagnosis_cohort %>%
+  filter(!is.na(gad) | !is.na(ia2))
+
+View(antibodies_cohort)
+```
+
+## Desc. Stats Within antibody cohort
+
+``` {r Antibody positivity, echo=FALSE}
+# GAD
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(gad) & is.na(ia2))
+) 
+
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(gad) & is.na(ia2)) %>%
+    filter(gad == 1)
+) 
+
+# IA2
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(ia2) & is.na(gad))
+) 
+
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(ia2) & is.na(gad)) %>%
+    filter(ia2 == 1)
+) 
+
+# Both antibodues
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(ia2) & !is.na(gad))
+) 
+
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(ia2) & !is.na(gad)) %>%
+    filter(gad == 0 & ia2 == 0)
+) 
+
+# Total
+nrow(
+  antibodies_cohort %>%
+    filter(gad == 1 | ia2 == 1)
+)
+
+```
+
+``` {r mean Age, BMI, HbA1c}
+# GAD
+antibodies_cohort %>%
+  filter(!is.na(gad) & is.na(ia2)) %>%
+  select(dm_diag_age_all, bmi, hba1c) %>%
+  describe()
+
+# IA2
+antibodies_cohort %>%
+  filter(is.na(gad) & !is.na(ia2)) %>%
+  select(dm_diag_age_all, bmi, hba1c) %>%
+  describe()
+
+# Both antibodies
+antibodies_cohort %>%
+  filter(!is.na(gad) & !is.na(ia2)) %>%
+  select(dm_diag_age_all, bmi, hba1c) %>%
+  describe()
+
+# Total
+antibodies_cohort %>%
+  select(dm_diag_age_all, bmi, hba1c) %>%
+  describe()
+  
+```
+
+``` {r Diabetes Type}
+# GAD
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(gad) & is.na(ia2)) %>%
+    filter(gender == 1) # Male == 1
+) 
+
+# IA2
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(ia2) & is.na(gad)) %>%
+    filter(gender == 1) # Male == 1
+) 
+
+# Both antibodies
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(ia2) & !is.na(gad)) %>%
+    filter(gender == 1) # Male == 1
+) 
+
+# Total
+nrow(
+  antibodies_cohort %>%
+    filter(gender == 1) # Male == 1
+)
+
+```
+
+``` {r Diabetes type}
+# GAD
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(gad) & is.na(ia2)) %>%
+    filter(diabetes_type == "type 1")
+) 
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(gad) & is.na(ia2)) %>%
+    filter(diabetes_type == "type 2")
+) 
+
+# IA2
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(ia2) & is.na(gad)) %>%
+    filter(diabetes_type == "type 1")
+) 
+
+# Both antibodies
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(ia2) & !is.na(gad)) %>%
+    filter(diabetes_type == "type 2")
+) 
+
+# Total
+nrow(
+  antibodies_cohort %>%
+    filter(diabetes_type == "type 2")
+)
+```
+
+``` {r Insulin}
+# GAD 
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(gad) & is.na(ia2)) %>%
+    filter(has_insulin == 1)
+)
+
+# IA2 
+nrow(
+  antibodies_cohort %>%
+    filter(is.na(gad) & !is.na(ia2)) %>%
+    filter(has_insulin == 1)
+)
+
+# Both 
+nrow(
+  antibodies_cohort %>%
+    filter(!is.na(gad) & !is.na(ia2)) %>%
+    filter(has_insulin == 1)
+)
+
+# Total
+nrow(
+  antibodies_cohort %>%
+    filter(has_insulin == 1)
+)
+
+```
+
+## Desc. Stats comparing antibody cohort to original
+
+``` {r mean Age BMI HbA1c}
+atdiagnosis_cohort %>%
+  filter(is.na(gad) & is.na(ia2)) %>%
+  select(dm_diag_age_all, bmi, hba1c) %>%
+  describe()
+
+```
+
+``` {r Prepping data for graphing}
+#> creating new column for atdiagnosis_cohort: "anti_positivity"
+#> anti_positivity gives a string value of whether patient has had antibody testing
+graphing_cohort = atdiagnosis_cohort %>%
+  mutate(classification = ifelse(!is.na(gad) | !is.na(ia2), ifelse(diabetes_type == "type 1", "T1DT", "T2DT"), NA)) %>%
+  mutate(classification = ifelse(is.na(gad) & is.na(ia2), ifelse(diabetes_type == "type 1", "T1DU", "T2DU"), classification))
+
+graphing_cohort = graphing_cohort %>%
+  mutate(antibody_month = ifelse(!is.na(gad) | !is.na(ia2), ifelse(!is.na(gad), substr(gad_date, 6, 7), substr(ia2_date, 6, 7)), NA))
+```
+
+``` {r Graphing Continuous Variables}
+
+
+
+classifications_list = list("T1DT", "T2DT", "T1DU", "T2DU")
+graphing_cohort %>%
+  filter(classification == classifications_list[1]) %>%
+  select(dm_diag_age_all, bmi, hba1c, time_to_insulin_weeks) %>%
+  describe()
+
+nrow(
+  graphing_cohort %>%
+    filter(classification == classifications_list[4])%>%
+    filter(is.na(bmi))
+)
+
+#> Creating Months of antibody testing histogram
+graphing_cohort %>% 
+  filter(!is.na(antibody_month)) %>%
+  ggplot(aes(x = antibody_month, fill = antibody_month)) + 
+  geom_histogram(stat="count")
+
+#> Creating histogram of years 
+graphing_cohort = graphing_cohort %>%
+  mutate(antibody_year = ifelse(!is.na(gad) | !is.na(ia2), ifelse(!is.na(gad), substr(gad_date, 1, 4), substr(ia2_date, 6, 7)), NA))
+
+graphing_cohort %>% 
+  filter(!is.na(antibody_year)) %>%
+  ggplot(aes(x = antibody_year, fill = antibody_year)) + 
+  geom_histogram(stat="count", show.legend = F)
+
+#> creating a very nice ridgeplot now
+#> 
+
+graphing_cohort %>%
+  ggplot(aes(y = classification)) +
+  geom_density_ridges2(
+    aes(
+    x = time_to_insulin_weeks,
+    y = classification,
+    group = classification,
+    fill = classification
+  ), 
+    alpha = .8, color = "black"
+  ) +
+  labs(
+    x = "Time to Insulin (Weeks)",
+    y = "Classification",
+    title = "Time to Insulin"
+  ) +
+  scale_y_discrete(expand = c(0, 0)) +
+  scale_x_continuous(expand = c(0, 0)) +
+  xlim(0, 500)
+  
+
+```
+
+}
+
+
+
+
