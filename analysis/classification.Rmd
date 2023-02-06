@@ -30,14 +30,52 @@ atdiagnosis_cohort = atdiagnosis_cohort %>%
 
 View(atdiagnosis_cohort)
 
+atdiagnosis_cohort %>%
+       filter(!is.na(gad) | !is.na(ia2))
+
+nrow()
+
 # Creating my Antibodies cohort
 antibodies_cohort = atdiagnosis_cohort %>%
-  filter(!is.na(gad) | !is.na(ia2))
+  filter(!is.na(gad) | !is.na(ia2)) %>%
+  #> This mutation is extremely complex bc need to inherit NA values
+  #> Creates a column that says 1 or 0 whether patient is antibody positive or negative
+  #> Retains NA values to distinguish those who have had antibody testing or not
+  mutate(anti_positivity = ifelse( 
+                                  !is.na(gad) & !is.na(ia2), # If patient tested for GAD and IA2
+                                  ifelse( # if patient has both antibody tests
+                                    gad == 1 & ia2 == 1, # If patient has BOTH positive test result
+                                    2,
+                                    ifelse( # Patient has two antibody tests, both != positive
+                                      gad == 1 | ia2 == 1, # Patient has at least 1 antibody positive
+                                      1, # true - positive patient
+                                      0 # false - negative patient
+                                    )
+                                  ),
+                                  ifelse( # if patient does not have both test results
+                                    !is.na(gad), # If patient has GAD tested (not IA2)
+                                    ifelse( 
+                                      gad == 1, # If GAD test is positive,
+                                      1, # Positive
+                                      0 # Negative
+                                    ),
+                                    ifelse( # if patient does NOT have GAD tested
+                                      !is.na(ia2), # check to see if patient has had IA2 tested
+                                      ifelse( # patients who have not had GAD but have had IA2
+                                        ia2 == 1, # If patient's IA2 test was positive:
+                                        1, # Positive
+                                        0 # Negative
+                                      ),
+                                      NA # Patient has not had IA2 or GAD tested
+                                    )
+                                  )
+                                )
+         )
 
 View(antibodies_cohort)
 ```
 
-## Desc. Stats Within antibody cohort
+## Desc. Stats of antibody cohort
 
 ``` {r Antibody positivity, echo=FALSE}
 # GAD
@@ -204,7 +242,7 @@ nrow(
 
 ```
 
-## Desc. Stats comparing antibody cohort to original
+## Investigating characteristics of individuals who received antibody testing
 
 ``` {r mean Age BMI HbA1c}
 atdiagnosis_cohort %>%
@@ -225,9 +263,7 @@ graphing_cohort = graphing_cohort %>%
   mutate(antibody_month = ifelse(!is.na(gad) | !is.na(ia2), ifelse(!is.na(gad), substr(gad_date, 6, 7), substr(ia2_date, 6, 7)), NA))
 ```
 
-``` {r Graphing Continuous Variables}
-
-
+``` {r Graphing Continuous Variables - Beautiful Ridgeplots}
 
 classifications_list = list("T1DT", "T2DT", "T1DU", "T2DU")
 graphing_cohort %>%
@@ -282,7 +318,39 @@ graphing_cohort %>%
 
 ```
 
-}
+## Investigating characteristics between antibody positive vs negative 
+
+``` {r Positive vs Negative antibody results}
+antibodies_cohort %>%
+  filter(anti_positivity == 2) %>% # Change anti_positivity for different groups of positivity
+  select(bmi, dm_diag_age_all, hba1c, time_to_insulin_weeks) %>%
+  describe()
+
+
+#> Ridgeplots
+antibodies_cohort %>% 
+  mutate(anti_positivity = as.character(anti_positivity)) %>%
+  ggplot(aes(y = anti_positivity)) +
+  geom_density_ridges2(
+    aes(
+    x = time_to_insulin_weeks,
+    y = anti_positivity,
+    group = anti_positivity,
+    fill = anti_positivity
+  ), 
+    alpha = .8, color = "black"
+  ) +
+  labs(
+    x = "time_to_insulin_weeks",
+    y = "Antibody Positivity",
+    title = "time_to_insulin_weeks"
+  ) +
+  scale_x_continuous(expand = c(0, 0)) #+
+  xlim(0, 500)
+  
+
+
+```
 
 
 
