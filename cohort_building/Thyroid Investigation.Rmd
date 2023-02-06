@@ -1,0 +1,98 @@
+---
+title: "Thyroid investigation"
+author: "Ethan de Villiers"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+``` {r Init, echo=FALSE} 
+
+library(devtools) # Essential for Aurum integration
+library(tidyverse)  # streamlining R coding since 2016
+
+install_github("Exeter-Diabetes/CPRD-analysis-package") # Package created by Exeter University to work with CPRD data
+library(aurum)
+cprd = CPRDData$new(cprdEnv = "test-remote", cprdConf = '~/RStudio/aurum.yaml')
+codesets = cprd$codesets()
+codes = codesets$getAllCodeSetVersion(v = "31/10/2021")
+```
+
+# Looking at TTG and TSH within Diabetic children (<18yo)
+
+``` {r Creating raw_tsh table for ThyroidInv, echo=FALSE}
+#Obtain TSH data
+analysis = cprd$analysis("all")
+thyroid_data = thyroid_data %>% 
+  analysis$cached("patid_clean_tsh")
+
+#Obtain t1t2_cohort for list of patid (relevant patients)
+t1t2_cohort = t1t2_cohort %>%
+  analysis$cached("t1t2_cohort")
+
+analysis = cprd$analysis("ethan")
+raw_tsh = t1t2_cohort %>%
+  select(patid, dm_diag_date_all) %>%
+  left_join(thyroid_data, by="patid") %>%
+  mutate(date_diff = datediff(obsdate, dm_diag_date_all)/7) %>%
+  filter(date_diff <= -4) %>%
+  group_by(patid) %>%
+  mutate(min_date_diff=min(abs(date_diff), na.rm=TRUE)) %>%
+  dbplyr::window_order(date_diff) %>%
+  filter(row_number()==1) %>%
+  ungroup() %>%
+  filter(abs(date_diff)==min_date_diff) %>%
+  analysis$cached("thyroidinv_raw_tsh")
+
+
+remove(thyroid_data)
+```
+
+``` {r Creating raw_ttg table for ThyroidInv, echo=FALSE}
+#Obtain TSH data
+analysis = cprd$analysis("all")
+thyroid_data = thyroid_data %>% 
+  analysis$cached("patid_clean_ttg")
+
+#Obtain t1t2_cohort for list of patid (relevant patients)
+t1t2_cohort = t1t2_cohort %>%
+  analysis$cached("t1t2_cohort")
+
+analysis = cprd$analysis("ethan")
+raw_ttg = t1t2_cohort %>%
+  select(patid, dm_diag_date_all) %>%
+  left_join(thyroid_data, by="patid") %>%
+  mutate(date_diff = datediff(obsdate, dm_diag_date_all)/7) %>%
+  filter(date_diff <= -4) %>%
+  group_by(patid) %>%
+  mutate(min_date_diff=min(abs(date_diff), na.rm=TRUE)) %>%
+  dbplyr::window_order(date_diff) %>%
+  filter(row_number()==1) %>%
+  ungroup() %>%
+  filter(abs(date_diff)==min_date_diff) %>%
+  analysis$cached("thyroidinv_raw_ttg")
+
+
+
+```
+
+``` {r Creating final thyroid_cohort}
+# merge both cohorts onto V7 for antibody + bmi + other data
+analysis = cprd$analysis("ethan")
+v7_cohort = v7_cohort %>%
+  analysis$cached("atdiagnosis_v7_ia2")
+
+thyroid_cohort = v7_cohort %>%
+  left_join(
+    raw_tsh %>% 
+    select(patid, tsh=result, tsh_date=obsdate),
+    by="patid"
+  ) %>%
+  left_join(
+    raw_ttg %>% 
+    select(patid, ttg=result, ttg_date=obsdate),
+    by="patid"
+  ) %>%
+  analysis$cached("thyroidinv_cohort")
+```
+
+Final cohort is now discoverable under the MySQL table as "ethan_thyroidinv_cohort"
