@@ -1,0 +1,88 @@
+---
+title: "Creating MySQL Data tables with R: TTG and TSH"
+author: "Ethan de Villiers"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+``` {r Init, echo=FALSE}
+library(devtools) # Essential for Aurum integration
+library(tidyverse)  # streamlining R coding since 2016
+
+install_github("Exeter-Diabetes/CPRD-analysis-package") # Package created by Exeter University to work with CPRD data
+library(aurum)
+
+cprd = CPRDData$new(cprdEnv = "test-remote", cprdConf = '~/RStudio/aurum.yaml')
+codesets = cprd$codesets()
+codes = codesets$getAllCodeSetVersion(v = "31/10/2021")
+```
+
+
+``` {r Creating all_patid_raw_antibodies tables, echo=FALSE}
+# Creation of all_patid_raw_gad, all_patid_raw_ia2 and all_patid_raw_ica
+analysis = cprd$analysis("all_patid")
+
+cprd$tables$observation %>%
+    inner_join(codes$ttg, by="medcodeid") %>%
+    analysis$cached("raw_ttg")
+
+cprd$tables$observation %>%
+    inner_join(codes$tsh, by="medcodeid") %>%
+    analysis$cached("raw_tsh")
+
+```
+
+``` {r Checking and cleaning TSH}
+# raw TSH table
+analysis = cprd$analysis("all_patid_raw")
+ethan_raw_antibody = ethan_raw_antibody %>%
+  analysis$cached("tsh")
+
+# 
+analysis = cprd$analysis("all_patid_clean")
+ethan_raw_antibody = ethan_raw_antibody %>%
+  select(patid, obsdate, testvalue, numunitid, numrangelow, numrangehigh) %>%
+  mutate( result = ifelse( 
+                          !is.na(testvalue) & !is.na(numrangehigh),
+                          ifelse(testvalue >= numrangehigh, 1, 0),
+                          ifelse( #If either testvalue | numrangehigh == NA
+                                  is.na(testvalue),
+                                  0, # If testvalue = NA, interpreted as negative test
+                                  ifelse( #Numrangehigh was the == NA, if value >11, then positive
+                                          testvalue >= 4.5,
+                                          1,
+                                          0
+                                        )
+                                 ) 
+                        )
+         ) %>%
+  analysis$cached("tsh")
+```
+
+``` {r Checking and cleaning TTG}
+# raw TTG table
+analysis = cprd$analysis("all_patid_raw")
+ethan_raw_antibody = ethan_raw_antibody %>%
+  analysis$cached("ttg")
+
+# 
+analysis = cprd$analysis("all_patid_clean")
+ethan_raw_antibody = ethan_raw_antibody %>%
+  select(patid, obsdate, testvalue, numunitid, numrangelow, numrangehigh) %>%
+  mutate( result = ifelse( 
+                          !is.na(testvalue) & !is.na(numrangehigh),
+                          ifelse(testvalue >= numrangehigh, 1, 0),
+                          ifelse( #If either testvalue | numrangehigh == NA
+                                  is.na(testvalue),
+                                  0, # If testvalue = NA, interpreted as negative test
+                                  ifelse( #Numrangehigh was the == NA, if value >11, then positive
+                                          testvalue >= 7,
+                                          1,
+                                          0
+                                        )
+                                 ) 
+                        )
+         ) %>%
+  analysis$cached("ttg")
+```
+
