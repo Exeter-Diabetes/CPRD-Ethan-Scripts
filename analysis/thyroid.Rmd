@@ -9,6 +9,8 @@ output: html_document
 
 library(devtools) # Essential for Aurum integration
 library(tidyverse)  # streamlining R coding since 2016
+library(ggplot2) # Used in graphing
+library(ggridges) # very beautiful must have ridges
 
 install_github("Exeter-Diabetes/CPRD-analysis-package") # Package created by Exeter University to work with CPRD data
 library(aurum)
@@ -50,12 +52,62 @@ refined_thyroid_cohort = refined_thyroid_cohort %>%
                                               )
                                       )
         ) %>%
-  mutate(classification = ifelse(!is.na(tsh), "tsh", NA)) %>% # Creating classifications = graphing
-  mutate(classification = ifelse(!is.na(ttg), "ttg", classification)) %>% # Creating classifications 
+  mutate(classification = ifelse(!is.na(tsh) & diabetes_type == "type 1", "tsh1", NA)) %>% # Creating classifications = graphing
+  mutate(classification = ifelse(!is.na(tsh) & diabetes_type == "type 2", "tsh2", classification)) %>%
+  mutate(classification = ifelse(!is.na(ttg) & diabetes_type == "type 1", "ttg1", classification)) %>% # Creating classifications 
+  mutate(classification = ifelse(!is.na(ttg) & diabetes_type == "type 2", "ttg2", classification))
   mutate(bmi = ifelse(is.na(bmi), weight/(height/100), bmi))
 
 View(refined_thyroid_cohort)
-# Plotting 
+
+
+# Graphing 
+ggplot(
+    refined_thyroid_cohort %>%
+      mutate(has_insulin = ifelse(has_insulin == 1, "Insulin", "No Insulin")), 
+    aes(diabetes_type, ..count..)
+  ) +
+  geom_bar(aes(fill = classification), position = "dodge")
+
+# Nice Ridgeplot
+refined_thyroid_cohort %>%
+  ggplot(aes(y = classification)) +
+  geom_density_ridges2(
+    aes(
+    x = hba1c,
+    y = classification,
+    group = classification,
+    fill = classification
+  ), 
+    alpha = .8, color = "black"
+  ) +
+  labs(
+    x = "hba1c",
+    y = "Classification",
+    title = "hba1c"
+  ) +
+  scale_y_discrete(expand = c(0, 0)) +
+  scale_x_continuous(expand = c(0, 0))
+
+nrow(refined_thyroid_cohort %>%
+       filter(dm_diag))
+
+nrow(
+  refined_thyroid_cohort %>%
+    filter(tsh == 1)
+  
+)
+
+nrow(refined_thyroid_cohort %>%
+       filter(!is.na(tsh)) %>%
+       filter(dm_diag_age_all < 2) %>%
+       filter(tsh == 1)
+     )
+
+refined_thyroid_cohort %>%
+       filter(dm_diag_age_all < 0) %>%
+       select(tsh, ttg)
+
 
 
 
