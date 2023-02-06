@@ -27,19 +27,20 @@ Completed Biomarkers:
  - Weight
  - Height
  - BMI
- - 
+ - IA2
+ - GAD
+ - HbA1c
  
 To DO baseline:
- - IA2
+ 
  - ICA
- - GAD
  - Run Models!
  - HDL
  - LDL
  - Triglyceride
  - Run lipids model!
 
-``` {r Pulling Baseline BMI}
+``` {r V1 - Pulling Baseline BMI}
 analysis = cprd$analysis("all")
 
 bmi_data = bmi_data %>% 
@@ -71,7 +72,7 @@ t1t2_cohort = t1t2_cohort %>%
 
 ```
 
-``` {r Calculating Time to Insulin}
+``` {r V2 - Calculating Time to Insulin}
 # Katie has already found earliest insulin date and diagnosis date: 'dm_diag_insdate' and 'dm_diag_date_all'
 t1t2_cohort = t1t2_cohort %>%
   mutate(time_to_insulin_weeks = datediff(dm_diag_insdate, dm_diag_date_all)/7) %>%
@@ -79,7 +80,7 @@ t1t2_cohort = t1t2_cohort %>%
 
 ```
 
-``` {r Pulling Baseline Weight}
+``` {r V3 - Pulling Baseline Weight}
 analysis = cprd$analysis("all")
 
 # Obtaining new Weight Table to pull into my data
@@ -114,7 +115,7 @@ my_cohort = my_cohort %>%
 
 ```
 
-``` {r Pulling Baseline Height}
+``` {r V4 - Pulling Baseline Height}
 
 analysis = cprd$analysis("all")
 
@@ -148,7 +149,7 @@ my_cohort = my_cohort %>%
 
 ```
 
-``` {r Pulling Baseline Hba1c}
+``` {r V5 - Pulling Baseline Hba1c}
 
 analysis = cprd$analysis("all")
 
@@ -186,7 +187,7 @@ my_cohort = my_cohort %>%
 ```
 
 
-``` {r Pulling Baseline Antibodies: GAD, echo=FALSE}
+``` {r V6 - Pulling Baseline Antibodies: GAD, echo=FALSE}
 
 # Obtaining new Weight Table to pull into my data
 analysis = cprd$analysis("all_patid_clean")
@@ -216,7 +217,7 @@ my_cohort = my_cohort %>%
 
 ```
 
-``` {r Pulling Baseline Antibodies: IA2, echo=FALSE}
+``` {r V7 - Pulling Baseline Antibodies: IA2, echo=FALSE}
 
 # Obtaining new Weight Table to pull into my data
 analysis = cprd$analysis("all_patid_clean")

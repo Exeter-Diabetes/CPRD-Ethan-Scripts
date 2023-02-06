@@ -1,3 +1,11 @@
+---
+title: "Creating MySQL Data tables with R: GAD and IA2"
+author: "Ethan de Villiers"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
 
 ``` {r Init, echo=FALSE}
 library(devtools) # Essential for Aurum integration
