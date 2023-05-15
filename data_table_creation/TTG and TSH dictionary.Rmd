@@ -1,0 +1,174 @@
+---
+title: "Creating MySQL Data tables with R: TTG and TSH"
+author: "Ethan de Villiers"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+``` {r Init, echo=FALSE}
+library(devtools) # Essential for Aurum integration
+library(tidyverse)  # streamlining R coding since 2016
+
+install_github("Exeter-Diabetes/CPRD-analysis-package") # Package created by Exeter University to work with CPRD data
+library(aurum)
+
+cprd = CPRDData$new(cprdEnv = "test-remote", cprdConf = '~/RStudio/aurum.yaml')
+codesets = cprd$codesets()
+# codes = codesets$getAllCodeSetVersion(v = "31/10/2021") # NOT WORKING
+```
+``` {r Creating _raw_ttg/_raw_tsh tables, echo=FALSE}
+# Creation of all_patid_raw_ttg and all_patid_raw_tsh tables in MySQL
+analysis = cprd$analysis("all_patid")
+
+cprd$tables$observation %>%
+    inner_join(codes$ttg, by="medcodeid") %>%
+    analysis$cached("raw_ttg")
+
+cprd$tables$observation %>%
+    inner_join(codes$tsh, by="medcodeid") %>%
+    analysis$cached("raw_tsh")
+```
+
+``` {r Loading in TSH and TTG Data}
+analysis = cprd$analysis("all_patid_raw") # TTG = 216,704 obs.
+ttg_df = ttg_df %>%
+  analysis$cached("ttg") %>%
+  cbind.data.frame()
+
+tsh_df = tsh_df %>% # TSH = 12,752,215 obs.
+  analysis$cached("tsh") %>%
+  cbind.data.frame()
+```
+
+``` {r TTG and TSH test limits}
+#> This section used to identify the TTG/TSH overall mode for numrangehigh
+
+#> Create frequency table of numrangehigh counts
+#>   - change "ethan_raw_antibody" to: ttg_df, or tsh_df
+data = ethan_raw_antibody %>%
+  count(numrangehigh) %>%
+  group_by(numrangehigh) %>%  
+  mutate(prop = prop.table(n)) 
+
+# Order by count/frequency values (descending) and print top 10 results
+data = data[with(data,order(-n)),]
+data[1:10,]
+```
+
+``` {r Verifying data integrity}
+#> This chunk was used to identify how much missing data was present
+
+#> TO use following command:
+#>   - Change dataframe after nrow( to ttg_df or tsh_df
+#>   - Change variable inside filter(is.na( var )) to = testvalue, numrangehigh
+nrow(
+  ttg_df %>%
+    filter(is.na(testvalue))
+)
+
+# cleaning, remove sensitive data from local env
+remove(ethan_raw_antibody)
+```
+
+``` {r Creating numrangehigh dictionary by numunitid}
+#> This chunk saves 2 dfs: ttg_numrangehigh_dictionary and tsh_numrangehigh_dictionary
+#> Each of these dfs are comprised of 2 columns:
+#>   1. numunitid = the "key", which type of ttg/tsh assay is being used
+#>   2. numrangehigh = the "value", what is the mode numrangehigh of this associated ttg/tsh assay
+#> The dataframes downloaded are extremely large (TSH = 12,752,215 obs. & TTG = 216,704 obs.), so do not run unless necessary 
+#> Ensure to uncomment and run the correct df respective of which selected_antibody you are using
+
+# Mode Function
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+#> Descriptive for how many datapoints we are filling in with "numrangehigh by mode_numunitid" method
+#>  - Change dataframe in nrow to ttg_df or tsh_df
+nrow(ttg_df %>%
+  filter(is.na(numrangehigh) & !is.na(numunitid)))
+
+
+ttg_numrangehigh_dictionary = ttg_df %>%
+  filter(!is.na(numrangehigh)) %>%
+  group_by(numunitid) %>%
+  summarise(mode_numrangehigh = Mode(numrangehigh),
+                              .groups = 'drop') %>%
+  filter(!is.na(numunitid))
+
+tsh_numrangehigh_dictionary = tsh_df %>%
+  filter(!is.na(numrangehigh)) %>%
+  group_by(numunitid) %>%
+  summarise(mode_numrangehigh = Mode(numrangehigh),
+                              .groups = 'drop')%>%
+  filter(!is.na(numunitid))
+```
+
+``` {r Environment cleaning}
+#> !! MUST RUN BEFORE CONTINUING !!
+#> - this cleans environment of any sensitive data saved to local environment from MySQL to ensure no leakage
+remove(data)
+remove(Mode)
+```
+
+``` {r Data cleaning}
+#> This chunk saves the key data points: patid, obsdate, testvalue, numunitid, numrangelow, numrangehigh 
+
+#> This is an Über-cleaning command:
+#>   1. Applies ttg/tsh numrangehigh by numunitid dictionaries to any datapoints missing numrangehigh WITH numunitid data
+#>   2. Über-ifelse statement to calculate test result:
+#>     > If datapoint has testvalue and numrangehigh, test is assumed *positive* if testvalue >= numrangehigh
+#>     > If datapoint is missing testvalue, test is assumed to be *negative*
+#>     > If datapoint has testvalue, but missing numrangehigh, applies ttg/tsh (not numunitid) mode numrangehigh values
+
+ttg_df <- ttg_df %>%
+  select(patid, obsdate, testvalue, numunitid, numrangelow, numrangehigh) %>%
+  mutate(numrangehigh = ifelse(
+    is.na(numrangehigh) & !is.na(numunitid),
+    ttg_numrangehigh_dictionary$mode_numrangehigh[match(numunitid, ttg_numrangehigh_dictionary$numunitid)],
+    numrangehigh
+  )) %>%
+  mutate(result = ifelse(
+    !is.na(testvalue) & !is.na(numrangehigh),
+      ifelse(testvalue >= numrangehigh, 1, 0),
+      ifelse( #If either testvalue | numrangehigh == NA
+              is.na(testvalue),
+              0, # If testvalue = NA, interpreted as negative test
+              ifelse( #Numrangehigh was the == NA
+                      testvalue >= 10,
+                      1,
+                      0
+                    )
+             ) 
+  ))
+
+tsh_df <- tsh_df %>%
+  select(patid, obsdate, testvalue, numunitid, numrangelow, numrangehigh) %>%
+  mutate(numrangehigh = ifelse(
+    is.na(numrangehigh) & !is.na(numunitid),
+    tsh_numrangehigh_dictionary$mode_numrangehigh[match(numunitid, tsh_numrangehigh_dictionary$numunitid)],
+    numrangehigh
+  )) %>%
+  mutate(result = ifelse(
+    !is.na(testvalue) & !is.na(numrangehigh),
+      ifelse(testvalue >= numrangehigh, 1, 0),
+      ifelse( #If either testvalue | numrangehigh == NA
+              is.na(testvalue),
+              0, # If testvalue = NA, interpreted as negative test
+              ifelse( #Numrangehigh was the == NA
+                      testvalue >= 4.2,
+                      1,
+                      0
+                    )
+             ) 
+  ))
+
+```
+
+``` {r }
+
+
+
+
+```

@@ -23,21 +23,344 @@ thyroid_cohort = thyroid_cohort %>%
   analysis$cached("thyroidinv_cohort") %>%
   cbind.data.frame()
 
-View(thyroid_cohort)
-
-nrow(thyroid_cohort %>%
-       filter(dm_diag_age_all <= 18) %>%
-       filter(!is.na(tsh | ttg))
-     )
-
-refined_thyroid_cohort = thyroid_cohort %>%
-       filter(dm_diag_age_all <= 18) %>%
-       filter(!is.na(tsh | ttg))
-
-
-remove(refined_thyroid_cohort)
+# View(thyroid_cohort)
 ```
 
+``` {r Cohort Cleaning}
+#> Building a TSH-TTG centric Type-1 Diabetes cohort
+
+# Remove any datapoint without TTG or TSH codes
+thyroid_cohort = thyroid_cohort %>%
+  filter(!is.na(tsh_date) | !is.na(ttg_date))
+
+# Select Type-1 diabetes only
+thyroid_cohort = thyroid_cohort %>%
+  filter(diabetes_type == "type 1")
+
+# Calculate time from birth to TTG test, in years
+thyroid_cohort = thyroid_cohort %>%
+  mutate(
+    years_to_ttg = as.numeric(
+      difftime(
+        as.Date(ttg_date, "%Y-%m-%d"),
+        as.Date(dob, "%Y-%m-%d"),
+        units = "weeks"
+      )
+    )/52
+  )
+
+# Calculate time from !BIRTH! to TSH test, in years
+thyroid_cohort = thyroid_cohort %>%
+  mutate(
+    years_to_tsh = as.numeric(
+      difftime(
+        as.Date(tsh_date, "%Y-%m-%d"),
+        as.Date(dob, "%Y-%m-%d"),
+        units = "weeks"
+      )
+    )/52
+  )
+
+# Calculate timediff from !DIAGNOSIS! to TTG test
+thyroid_cohort = thyroid_cohort %>%
+  mutate(
+    years_diag_ttg = as.numeric(
+      difftime(
+        as.Date(ttg_date, "%Y-%m-%d"),
+        as.Date(dm_diag_date_all, "%Y-%m-%d"),
+        units = "weeks"
+      )
+    )/52
+  )
+
+# Calculate timediff from !DIAGNOSIS! to TSH test
+thyroid_cohort = thyroid_cohort %>%
+  mutate(
+    years_diag_tsh = as.numeric(
+      difftime(
+        as.Date(tsh_date, "%Y-%m-%d"),
+        as.Date(dm_diag_date_all, "%Y-%m-%d"),
+        units = "weeks"
+      )
+    )/52
+  )
+```
+
+``` {r Defining Test Positivity Outcome}
+#> This section is where the outcome (positive or negative) TSH/TTG results are calculated
+
+#> Initialise a custom function to calculate Mode for us:
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+#> First must create two lookup tables based on the MODE thresholds for each different TSH and TTG assay
+ttg_numrangehigh_dictionary = thyroid_cohort %>%
+  filter(!is.na(ttg_numrange)) %>%
+  group_by(ttg_numunitid) %>%
+  summarise(mode_numrangehigh = Mode(ttg_numrange),
+                              .groups = 'drop') %>%
+  filter(!is.na(ttg_numunitid))
+
+tsh_numrangehigh_dictionary = thyroid_cohort %>%
+  filter(!is.na(tsh_numrange)) %>%
+  group_by(tsh_numunitid) %>%
+  summarise(mode_numrangehigh = Mode(tsh_numrange),
+                              .groups = 'drop')%>%
+  filter(!is.na(tsh_numunitid))
+
+#> Mega-complex command to fill in missing TSH or TTG numrange values for those with numunitid:
+#>   > Finds datapoints missing ttg_numrange, but that HAVE ttg_numunitid
+#>   > Takes datapoint ttg_numunitid and looks up value in ttg_dictionary for that numunitid, putting the mode numrange for that numunitid in the numrange column
+#>   > Does exact same for TSH
+
+thyroid_cohort = thyroid_cohort %>%
+  mutate(ttg_numrange = ifelse(
+    is.na(ttg_numrange) & !is.na(ttg_numunitid),
+    ttg_numrangehigh_dictionary$mode_numrangehigh[match(ttg_numunitid, ttg_numrangehigh_dictionary$ttg_numunitid)],
+    ttg_numrange
+  )) %>%
+  mutate(tsh_numrange = ifelse(
+    is.na(tsh_numrange) & !is.na(tsh_numunitid),
+    tsh_numrangehigh_dictionary$mode_numrangehigh[match(tsh_numunitid, tsh_numrangehigh_dictionary$tsh_numunitid)],
+    tsh_numrange
+  ))
+
+#> This is an Über-test-result-calculating command:
+#>  > If ttg_date IS  missing, this means datapoint DOESN'T HAVE a ttg test = skip. Otherwise execute the following:
+#>    > If datapoint has testvalue and numrangehigh, test is *positive* if testvalue >= numrangehigh
+#>    > If datapoint is missing testvalue, test is assumed to be *negative*
+#>    > If datapoint has testvalue, but missing numrangehigh, applies ttg/tsh (not numunitid) mode numrangehigh values
+thyroid_cohort = thyroid_cohort %>%
+  mutate(ttg_result = NA) %>% # Initialise new TTG column
+  mutate(ttg_result = ifelse(
+    is.na(ttg_date),
+    ttg_result,
+    ifelse( # If datapoint HAS ttg_date ...
+      !is.na(ttg) & !is.na(ttg_numrange),
+      ifelse(ttg >= ttg_numrange, 1, 0),
+      ifelse( #If either testvalue | numrangehigh == NA
+              is.na(ttg),
+              0, # If testvalue = NA, interpreted as negative test
+              ifelse( #Numrangehigh was the == NA
+                      ttg >= 10,
+                      1,
+                      0
+                    )
+             ) 
+    )
+  )) %>%
+  mutate(tsh_result = NA) %>% # Initialise new TSH column
+  mutate(tsh_result = ifelse(
+    is.na(tsh_date),
+    tsh_result,
+    ifelse( # If datapoint HAS tsh_date ...
+      !is.na(tsh) & !is.na(tsh_numrange),
+      ifelse(tsh >= tsh_numrange, 1, 0),
+      ifelse( #If either testvalue | numrangehigh == NA
+              is.na(tsh),
+              0, # If testvalue = NA, interpreted as negative test
+              ifelse( #Numrangehigh was the == NA
+                      tsh >= 4.2,
+                      1,
+                      0
+                    )
+             ) 
+    )
+  ))
+
+#> Cleaning environment:
+remove(Mode)
+remove(ttg_numrangehigh_dictionary)
+remove(tsh_numrangehigh_dictionary)
+```
+
+``` {r Patient-indexed cohort creation}
+#> This section is used to create a patient-indexed cohort
+#> Not to be used for TSH and TTG data! Extremely crude method with no selection for which TSH and TTG data is kept.
+patidX_thyroid_cohort = thyroid_cohort[!duplicated(thyroid_cohort$patid), ]
+```
+
+``` {r patient-X descriptives}
+# Number of patients diagnosed before 18
+nrow(
+  patidX_thyroid_cohort %>%
+       filter(dm_diag_age_all < 18)
+)
+```
+
+``` {r Basic Descriptives}
+## HISTOGRAMS ####
+
+# Histogram of Time in years from birth until TTG test
+ggplot(thyroid_cohort, aes(x=years_to_ttg)) +
+  geom_histogram(color="white", fill="blue") +
+  labs(title = "Time in years from birth until TTG test")
+
+# Histogram of Time in years from birth until TSH test
+ggplot(thyroid_cohort, aes(x=years_to_tsh)) +
+  geom_histogram(color="white", fill="red") +
+  labs(title = "Time in years from birth until TSH test") +
+  scale_x_continuous( limits = c(0, 100))
+
+# Histogram of Time in years from birth until !!POSITIVE!! TTG test
+ggplot(
+  thyroid_cohort %>%
+    group_by(patid) %>%
+    summarise(
+      ttg_positive = sum(ttg_result),
+      ttg_date = min(ttg_date),
+      years_to_ttg = years_to_ttg
+    ) %>%
+    filter(ttg_positive > 0) %>%
+    filter(ttg_date == min(ttg_date))
+    , 
+  aes(x=years_to_ttg)
+) +
+  geom_histogram(color="white", fill="blue") +
+  labs(title = "Years from birth until earliest Positive TTG")
+
+# Histogram of Time in years from birth until !!POSITIVE!! TSH test
+ggplot(
+  thyroid_cohort %>%
+    group_by(patid) %>%
+    summarise(
+      tsh_positive = sum(tsh_result),
+      tsh_date = min(tsh_date),
+      years_to_ttg = years_to_ttg
+    ) %>%
+    filter(tsh_positive > 0) %>%
+    filter(tsh_date == min(tsh_date)), 
+  aes(x=years_to_ttg)
+) +
+  geom_histogram(color="white", fill="red") +
+  labs(title = "Years from birth until earliest Positive TSH")
+
+# Histogram of TTG datapoints before diagnosis
+ggplot(
+  thyroid_cohort,
+  aes(x=years_diag_ttg)
+) +
+  geom_histogram(color="white", fill="blue") +
+  labs(title = "Years of TTG before diagnosis") +
+  scale_x_continuous(limits = c(-20, 20))
+
+# Histogram of TSH datapoints before diagnosis
+ggplot(
+  thyroid_cohort,
+  aes(x=years_diag_tsh)
+) +
+  geom_histogram(color="white", fill="red") +
+  labs(title = "Years of TSH before diagnosis") +
+  scale_x_continuous(limits = c(-20, 20))
+
+# Histogram of Time of earliest TTG test to diagnosis in YEARS
+ggplot(
+  thyroid_cohort %>%
+    group_by(patid) %>%
+    summarise(
+      ttg_positive = sum(ttg_result),
+      ttg_date = min(ttg_date),
+      years_diag_ttg = years_diag_ttg
+    ) %>%
+    filter(ttg_positive > 0) %>%
+    filter(ttg_date == min(ttg_date))
+    , 
+  aes(x=years_diag_ttg)
+) +
+  geom_histogram(color="white", fill="blue") +
+  labs(title = "Years from earliest Positive TTG to Diagnosis") +
+  scale_x_continuous(limits = c(-20, 20))
+
+# Histogram of Time in years from birth until !!POSITIVE!! TSH test
+ggplot(
+  thyroid_cohort %>%
+    group_by(patid) %>%
+    summarise(
+      tsh_positive = sum(tsh_result),
+      tsh_date = min(tsh_date),
+      years_diag_tsh = years_diag_tsh
+    ) %>%
+    filter(tsh_positive > 0) %>%
+    filter(tsh_date == min(tsh_date)), 
+  aes(x=years_diag_tsh)
+) +
+  geom_histogram(color="white", fill="red") +
+  labs(title = "Years from earliest Positive TSH to Diagnosis") +
+  scale_x_continuous(limits = c(-20, 20))
+
+## BAR PLOTS (GENDER) ####
+# Bar plot of gender in TTG/TSH
+ggplot(
+  thyroid_cohort %>%
+    filter(!is.na(tsh_date)) %>%
+    group_by(patid) %>%
+    summarize(gender = first(gender)) %>%
+    ungroup(),
+  aes(gender, ..count..)
+) +
+  geom_bar() +
+  labs(title = "Gender in Patients tested for TSH")
+
+
+
+## MANUAL DESCRIPTIVES FOR TABLE ####
+# Number of TTG tests
+nrow(
+  thyroid_cohort %>%
+    filter(!is.na(ttg_date))
+)
+
+# Number of TSH tests
+nrow(
+  thyroid_cohort %>%
+    filter(!is.na(tsh_date))
+)
+
+# Number of positive TTG test
+nrow(
+  thyroid_cohort %>%
+       filter(!is.na(ttg_date) & ttg_result == 1)
+)
+
+# Number of negative TTG test
+nrow(
+  thyroid_cohort %>%
+       filter(!is.na(ttg_date) & ttg_result == 0)
+)
+
+# Number of positive TSH test
+nrow(
+  thyroid_cohort %>%
+       filter(!is.na(tsh_date) & tsh_result == 1)
+)
+
+# Number of negative TSH test
+nrow(
+  thyroid_cohort %>%
+       filter(!is.na(tsh_date) & tsh_result == 0)
+)
+
+# Number of patients tested for TTG/TSH (change ttg_date to tsh_date)
+nrow(
+  thyroid_cohort %>%
+    filter(!is.na(ttg_date)) %>%
+    distinct(patid)
+)
+
+#> TO find how many negative/ positive TSH or TTG results:
+#>  - Change "xxx_positive" in last filter section to = tsh_positive, or ttg_positive
+#>  - Change == 0 in last filter section (negative test) to = ==0 or > 0
+nrow(
+  thyroid_cohort %>%
+    group_by(patid) %>%
+    summarise(tsh_positive = sum(tsh_result), ttg_positive = sum(ttg_result), .groups = 'drop') %>%
+    filter(ttg_positive > 0)
+)
+
+
+```
 
 ``` {r Desc Stats}
 #Calculate time_to_thyroid_test and BMI, create new column to classify them by
@@ -107,6 +430,9 @@ nrow(refined_thyroid_cohort %>%
 refined_thyroid_cohort %>%
        filter(dm_diag_age_all < 0) %>%
        select(tsh, ttg)
+
+refined_thyroid_cohort %>%
+  filter(tsh == 1 | ttg == 1)
 
 
 

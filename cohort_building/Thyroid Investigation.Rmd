@@ -16,10 +16,39 @@ cprd = CPRDData$new(cprdEnv = "test-remote", cprdConf = '~/RStudio/aurum.yaml')
 codesets = cprd$codesets()
 codes = codesets$getAllCodeSetVersion(v = "31/10/2021")
 ```
+``` {r Creating final thyroid_cohort}
+#Obtaining TSH and TTG data and saving it for pulling use
+analysis = cprd$analysis("all")
+raw_tsh = raw_tsh %>% 
+  analysis$cached("patid_clean_tsh")
 
-# Looking at TTG and TSH within Diabetic children (<18yo)
+raw_ttg = raw_ttg %>% 
+  analysis$cached("patid_clean_ttg")
 
-``` {r Creating raw_tsh table for ThyroidInv, echo=FALSE}
+# merge both cohorts onto V7 for antibody + bmi + other data
+analysis = cprd$analysis("ethan")
+v7_cohort = v7_cohort %>%
+  analysis$cached("atdiagnosis_v7_ia2")
+
+thyroid_cohort = v7_cohort %>%
+  left_join(
+    raw_tsh %>% 
+    select(patid, tsh=testvalue, tsh_date=obsdate, tsh_numunitid=numunitid, tsh_numrange=numrangehigh),
+    by="patid"
+  ) %>%
+  left_join(
+    raw_ttg %>% 
+    select(patid, ttg=testvalue, ttg_date=obsdate, ttg_numunitid=numunitid, ttg_numrange=numrangehigh),
+    by="patid"
+  ) %>%
+  analysis$cached("thyroidinv_cohort")
+```
+
+Final cohort is now discoverable under the MySQL table as "ethan_thyroidinv_cohort"
+
+
+``` {r Unused Legacy Code:}
+### Creating raw_tsh table for ThyroidInv ####
 #Obtain TSH data
 analysis = cprd$analysis("all")
 thyroid_data = thyroid_data %>% 
@@ -27,7 +56,7 @@ thyroid_data = thyroid_data %>%
 
 #Obtain t1t2_cohort for list of patid (relevant patients)
 t1t2_cohort = t1t2_cohort %>%
-  analysis$cached("t1t2_cohort")
+  analysis$cached("t1t2_cohort_v2")
 
 analysis = cprd$analysis("ethan")
 raw_tsh = t1t2_cohort %>%
@@ -45,9 +74,9 @@ raw_tsh = t1t2_cohort %>%
 
 
 remove(thyroid_data)
-```
 
-``` {r Creating raw_ttg table for ThyroidInv, echo=FALSE}
+
+### Creating raw_ttg table for ThyroidInv ####
 #Obtain TSH data
 analysis = cprd$analysis("all")
 thyroid_data = thyroid_data %>% 
@@ -73,26 +102,6 @@ raw_ttg = t1t2_cohort %>%
 
 
 
+
+
 ```
-
-``` {r Creating final thyroid_cohort}
-# merge both cohorts onto V7 for antibody + bmi + other data
-analysis = cprd$analysis("ethan")
-v7_cohort = v7_cohort %>%
-  analysis$cached("atdiagnosis_v7_ia2")
-
-thyroid_cohort = v7_cohort %>%
-  left_join(
-    raw_tsh %>% 
-    select(patid, tsh=result, tsh_date=obsdate),
-    by="patid"
-  ) %>%
-  left_join(
-    raw_ttg %>% 
-    select(patid, ttg=result, ttg_date=obsdate),
-    by="patid"
-  ) %>%
-  analysis$cached("thyroidinv_cohort")
-```
-
-Final cohort is now discoverable under the MySQL table as "ethan_thyroidinv_cohort"

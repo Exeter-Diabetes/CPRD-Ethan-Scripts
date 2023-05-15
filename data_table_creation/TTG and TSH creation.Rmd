@@ -42,20 +42,6 @@ ethan_raw_antibody = ethan_raw_antibody %>%
 analysis = cprd$analysis("all_patid_clean")
 ethan_raw_antibody = ethan_raw_antibody %>%
   select(patid, obsdate, testvalue, numunitid, numrangelow, numrangehigh) %>%
-  mutate( result = ifelse( 
-                          !is.na(testvalue) & !is.na(numrangehigh),
-                          ifelse(testvalue >= numrangehigh, 1, 0),
-                          ifelse( #If either testvalue | numrangehigh == NA
-                                  is.na(testvalue),
-                                  0, # If testvalue = NA, interpreted as negative test
-                                  ifelse( #Numrangehigh was the == NA, if value >11, then positive
-                                          testvalue >= 4.5,
-                                          1,
-                                          0
-                                        )
-                                 ) 
-                        )
-         ) %>%
   analysis$cached("tsh")
 ```
 
@@ -69,20 +55,5 @@ ethan_raw_antibody = ethan_raw_antibody %>%
 analysis = cprd$analysis("all_patid_clean")
 ethan_raw_antibody = ethan_raw_antibody %>%
   select(patid, obsdate, testvalue, numunitid, numrangelow, numrangehigh) %>%
-  mutate( result = ifelse( 
-                          !is.na(testvalue) & !is.na(numrangehigh),
-                          ifelse(testvalue >= numrangehigh, 1, 0),
-                          ifelse( #If either testvalue | numrangehigh == NA
-                                  is.na(testvalue),
-                                  0, # If testvalue = NA, interpreted as negative test
-                                  ifelse( #Numrangehigh was the == NA, if value >11, then positive
-                                          testvalue >= 7,
-                                          1,
-                                          0
-                                        )
-                                 ) 
-                        )
-         ) %>%
   analysis$cached("ttg")
 ```
-
